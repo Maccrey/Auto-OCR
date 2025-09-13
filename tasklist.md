@@ -164,22 +164,22 @@
 #### 3.1 Upload API (api/upload.py)
 
 **테스트 작성**
-- [ ] test_upload_api.py 생성
-- [ ] 파일 업로드 엔드포인트 테스트
-  - [ ] 유효한 PDF 업로드 테스트
-  - [ ] 잘못된 파일 형식 거부 테스트
-  - [ ] 파일 크기 제한 테스트
-- [ ] 업로드 상태 확인 테스트
-- [ ] 파일 검증 테스트
-- [ ] 에러 처리 테스트
+- [x] test_upload_api.py 생성
+- [x] 파일 업로드 엔드포인트 테스트
+  - [x] 유효한 PDF 업로드 테스트
+  - [x] 잘못된 파일 형식 거부 테스트
+  - [x] 파일 크기 제한 테스트
+- [x] 업로드 상태 확인 테스트
+- [x] 파일 검증 테스트
+- [x] 에러 처리 테스트
 
 **구현**
-- [ ] FastAPI 라우터 기본 구조 작성
-- [ ] POST /api/upload 엔드포인트 구현
-- [ ] GET /api/upload/{upload_id}/status 엔드포인트 구현
-- [ ] 파일 검증 로직 구현
-- [ ] 업로드 진행률 추적 구현
-- [ ] 모든 테스트 통과 확인
+- [x] FastAPI 라우터 기본 구조 작성
+- [x] POST /api/upload 엔드포인트 구현
+- [x] GET /api/upload/{upload_id}/status 엔드포인트 구현
+- [x] 파일 검증 로직 구현
+- [x] 업로드 진행률 추적 구현
+- [x] 모든 테스트 통과 확인 (핵심 테스트 15개 통과)
 
 #### 3.2 Processing API (api/processing.py)
 
