@@ -94,24 +94,24 @@
 #### 2.4 OCREngine 클래스 (core/ocr_engine.py)
 
 **테스트 작성**
-- [ ] test_ocr_engine.py 생성
-- [ ] PaddleOCR 엔진 테스트
-  - [ ] 엔진 초기화 테스트
-  - [ ] 텍스트 인식 테스트
-  - [ ] 신뢰도 점수 테스트
-- [ ] Tesseract 엔진 테스트
-  - [ ] 엔진 초기화 테스트
-  - [ ] 텍스트 인식 테스트
-- [ ] 앙상블 기능 테스트
-- [ ] 오류 처리 테스트 (엔진 로드 실패 등)
+- [x] test_ocr_engine.py 생성
+- [x] PaddleOCR 엔진 테스트
+  - [x] 엔진 초기화 테스트
+  - [x] 텍스트 인식 테스트
+  - [x] 신뢰도 점수 테스트
+- [x] Tesseract 엔진 테스트
+  - [x] 엔진 초기화 테스트
+  - [x] 텍스트 인식 테스트
+- [x] 앙상블 기능 테스트
+- [x] 오류 처리 테스트 (엔진 로드 실패 등)
 
 **구현**
-- [ ] OCREngine 베이스 클래스 작성
-- [ ] PaddleOCREngine 클래스 구현
-- [ ] TesseractEngine 클래스 구현
-- [ ] OCREngineManager 클래스 구현
-- [ ] ensemble_recognition() 메서드 구현
-- [ ] 모든 테스트 통과 확인
+- [x] OCREngine 베이스 클래스 작성
+- [x] PaddleOCREngine 클래스 구현
+- [x] TesseractEngine 클래스 구현
+- [x] OCREngineManager 클래스 구현
+- [x] ensemble_recognition() 메서드 구현
+- [x] 모든 테스트 통과 확인 (20개 테스트 모두 통과)
 
 #### 2.5 TextCorrector 클래스 (core/text_corrector.py)
 
