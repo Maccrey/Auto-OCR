@@ -10,7 +10,8 @@
       "Bash(python -m pytest tests/test_core/test_pdf_converter.py::TestPDFConverter::test_convert_with_custom_dpi -v)",
       "Bash(python -m pytest tests/test_core/test_image_processor.py -v)",
       "Bash(python -m pytest tests/test_core/test_ocr_engine.py -v)",
-      "Bash(pip3 install:*)"
+      "Bash(pip3 install:*)",
+      "Bash(python -m pytest tests/test_core/test_file_generator.py -v)"
     ],
     "deny": [],
     "ask": []
