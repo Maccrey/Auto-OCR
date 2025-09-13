@@ -116,24 +116,29 @@
 #### 2.5 TextCorrector 클래스 (core/text_corrector.py)
 
 **테스트 작성**
-- [ ] test_text_corrector.py 생성
-- [ ] 띄어쓰기 교정 테스트
-  - [ ] KoSpacing 기본 동작 테스트
-  - [ ] 다양한 텍스트 패턴 테스트
-- [ ] 맞춤법 교정 테스트
-  - [ ] 일반적인 맞춤법 오류 교정 테스트
-  - [ ] 특수한 경우 처리 테스트
-- [ ] 사용자 정의 규칙 테스트
-- [ ] diff 생성 테스트
+- [x] test_text_corrector.py 생성
+- [x] 띄어쓰기 교정 테스트
+  - [x] KoSpacing 기본 동작 테스트
+  - [x] 다양한 텍스트 패턴 테스트 (멀티라인, 빈 텍스트, 오류 처리)
+- [x] 맞춤법 교정 테스트
+  - [x] 일반적인 맞춤법 오류 교정 테스트
+  - [x] 특수한 경우 처리 테스트 (긴 텍스트, 오류 처리)
+- [x] 사용자 정의 규칙 테스트 (기본 규칙, 패턴 규칙, OCR 특화 규칙)
+- [x] diff 생성 테스트 (단순, 멀티라인, 변경사항 없음)
+- [x] CER/WER 계산 테스트
+- [x] 통합 테스트 및 성능 테스트
 
 **구현**
-- [ ] TextCorrector 클래스 기본 구조 작성
-- [ ] correct_spacing() 메서드 구현 (KoSpacing)
-- [ ] correct_spelling() 메서드 구현 (Hanspell)
-- [ ] apply_custom_rules() 메서드 구현
-- [ ] generate_diff() 메서드 구현
-- [ ] CorrectionResult 데이터 클래스 구현
-- [ ] 모든 테스트 통과 확인
+- [x] TextCorrector 클래스 기본 구조 작성
+- [x] correct_spacing() 메서드 구현 (KoSpacing)
+- [x] correct_spelling() 메서드 구현 (Hanspell + 청크 처리)
+- [x] apply_custom_rules() 메서드 구현 (일반 규칙, 패턴 규칙, OCR 규칙)
+- [x] generate_diff() 메서드 구현 (SequenceMatcher 기반)
+- [x] calculate_cer() / calculate_wer() 메서드 구현
+- [x] CorrectionResult 및 DiffItem 데이터 클래스 구현
+- [x] 설정 관리 및 통계 추적 기능
+- [x] 규칙 import/export 기능
+- [x] 모든 테스트 통과 확인 (25개 테스트 모두 통과)
 
 #### 2.6 FileGenerator 클래스 (core/file_generator.py)
 
