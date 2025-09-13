@@ -143,21 +143,21 @@
 #### 2.6 FileGenerator 클래스 (core/file_generator.py)
 
 **테스트 작성**
-- [ ] test_file_generator.py 생성
-- [ ] 텍스트 파일 생성 테스트
-  - [ ] 기본 텍스트 파일 생성 테스트
-  - [ ] 한글 인코딩 처리 테스트
-  - [ ] 빈 텍스트 처리 테스트
-- [ ] 다운로드 응답 생성 테스트
-- [ ] 임시 파일 정리 테스트
+- [x] test_file_generator.py 생성
+- [x] 텍스트 파일 생성 테스트
+  - [x] 기본 텍스트 파일 생성 테스트
+  - [x] 한글 인코딩 처리 테스트
+  - [x] 빈 텍스트 처리 테스트
+- [x] 다운로드 응답 생성 테스트
+- [x] 임시 파일 정리 테스트
 
 **구현**
-- [ ] FileGenerator 클래스 기본 구조 작성
-- [ ] generate_text_file() 메서드 구현
-- [ ] create_download_response() 메서드 구현
-- [ ] cleanup_temp_files() 메서드 구현
-- [ ] get_file_download_url() 메서드 구현
-- [ ] 모든 테스트 통과 확인
+- [x] FileGenerator 클래스 기본 구조 작성
+- [x] generate_text_file() 메서드 구현
+- [x] create_download_response() 메서드 구현
+- [x] cleanup_temp_files() 메서드 구현
+- [x] get_file_download_url() 메서드 구현
+- [x] 모든 테스트 통과 확인 (24개 테스트 모두 통과)
 
 ### Phase 3: Web API 개발
 
