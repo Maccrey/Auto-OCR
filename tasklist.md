@@ -4,16 +4,16 @@
 ### Phase 1: 프로젝트 설정 및 기본 구조
 
 #### 1.1 프로젝트 초기화
-- [ ] 웹 프로젝트 디렉토리 구조 생성 (frontend/backend 분리)
-- [ ] requirements.txt 작성 및 가상환경 설정
-- [ ] FastAPI 기본 설정 및 main.py 작성
-- [ ] pytest 설정 파일 (pytest.ini) 작성
-- [ ] mypy 설정 파일 (mypy.ini) 작성
-- [ ] black/flake8 설정 파일 작성
-- [ ] .gitignore 파일 작성 (웹 프로젝트용)
-- [ ] README.md 초기 버전 작성
-- [ ] Docker 설정 (Dockerfile, docker-compose.yml)
-- [ ] .env 파일 템플릿 작성
+- [x] 웹 프로젝트 디렉토리 구조 생성 (frontend/backend 분리)
+- [x] requirements.txt 작성 및 가상환경 설정
+- [x] FastAPI 기본 설정 및 main.py 작성
+- [x] pytest 설정 파일 (pytest.ini) 작성
+- [x] mypy 설정 파일 (mypy.ini) 작성
+- [x] black/flake8 설정 파일 작성
+- [x] .gitignore 파일 작성 (웹 프로젝트용)
+- [x] README.md 초기 버전 작성
+- [x] Docker 설정 (Dockerfile, docker-compose.yml)
+- [x] .env 파일 템플릿 작성
 
 #### 1.2 CI/CD 설정
 - [ ] GitHub Actions 워크플로우 설정
@@ -28,68 +28,68 @@
 #### 2.1 TempStorage 클래스 (utils/temp_storage.py)
 
 **테스트 작성**
-- [ ] test_temp_storage.py 생성
-- [ ] 임시 파일 저장 테스트 케이스 작성
-  - [ ] 파일 저장 및 고유 ID 생성 테스트
-  - [ ] 파일 검색 및 반환 테스트
-  - [ ] 파일 TTL 및 자동 삭제 테스트
-- [ ] 파일 접근 권한 테스트
-  - [ ] 업로더만 접근 가능 검증
-  - [ ] 잘못된 ID 접근 차단 테스트
-- [ ] 저장 공간 관리 테스트
+- [x] test_temp_storage.py 생성
+- [x] 임시 파일 저장 테스트 케이스 작성
+  - [x] 파일 저장 및 고유 ID 생성 테스트
+  - [x] 파일 검색 및 반환 테스트
+  - [x] 파일 TTL 및 자동 삭제 테스트
+- [x] 파일 접근 권한 테스트
+  - [x] 업로더만 접근 가능 검증
+  - [x] 잘못된 ID 접근 차단 테스트
+- [x] 저장 공간 관리 테스트
 
 **구현**
-- [ ] TempStorage 클래스 기본 구조 작성
-- [ ] save_file() 메서드 구현
-- [ ] get_file() 메서드 구현
-- [ ] delete_file() 메서드 구현
-- [ ] cleanup_expired_files() 메서드 구현
-- [ ] generate_file_id() 메서드 구현
-- [ ] 모든 테스트 통과 확인
+- [x] TempStorage 클래스 기본 구조 작성
+- [x] save_file() 메서드 구현
+- [x] get_file() 메서드 구현
+- [x] delete_file() 메서드 구현
+- [x] cleanup_expired_files() 메서드 구현
+- [x] generate_file_id() 메서드 구현
+- [x] 모든 테스트 통과 확인 (16개 테스트 모두 통과)
 
 #### 2.2 PDFConverter 클래스 (core/pdf_converter.py)
 
 **테스트 작성**
-- [ ] test_pdf_converter.py 생성
-- [ ] PDF to PNG 변환 테스트 케이스 작성
-  - [ ] 단일 페이지 PDF 변환 테스트
-  - [ ] 다중 페이지 PDF 변환 테스트
-  - [ ] 손상된 PDF 처리 테스트
-- [ ] PDF 검증 테스트
-  - [ ] 유효한 PDF 파일 검증
-  - [ ] 암호화된 PDF 처리 테스트
-- [ ] 변환 품질 및 해상도 테스트
+- [x] test_pdf_converter.py 생성
+- [x] PDF to PNG 변환 테스트 케이스 작성
+  - [x] 단일 페이지 PDF 변환 테스트
+  - [x] 다중 페이지 PDF 변환 테스트
+  - [x] 손상된 PDF 처리 테스트
+- [x] PDF 검증 테스트
+  - [x] 유효한 PDF 파일 검증
+  - [x] 암호화된 PDF 처리 테스트
+- [x] 변환 품질 및 해상도 테스트
 
 **구현**
-- [ ] PDFConverter 클래스 기본 구조 작성
-- [ ] convert_pdf_to_png() 메서드 구현
-- [ ] validate_pdf() 메서드 구현
-- [ ] get_pdf_info() 메서드 구현
-- [ ] estimate_processing_time() 메서드 구현
-- [ ] 모든 테스트 통과 확인
+- [x] PDFConverter 클래스 기본 구조 작성
+- [x] convert_pdf_to_png() 메서드 구현
+- [x] validate_pdf() 메서드 구현
+- [x] get_pdf_info() 메서드 구현
+- [x] estimate_processing_time() 메서드 구현
+- [x] 모든 테스트 통과 확인 (19개 테스트 모두 통과)
 
 #### 2.3 ImageProcessor 클래스 (core/image_processor.py)
 
 **테스트 작성**
-- [ ] test_image_processor.py 생성
-- [ ] 이미지 전처리 테스트 케이스 작성
-  - [ ] 흑백 변환 테스트
-  - [ ] CLAHE 대비 보정 테스트
-  - [ ] Deskew 기능 테스트
-  - [ ] 노이즈 제거 테스트
-  - [ ] Adaptive Threshold 테스트
-- [ ] 이미지 품질 검증 테스트
-- [ ] 전처리 옵션별 결과 비교 테스트
+- [x] test_image_processor.py 생성
+- [x] 이미지 전처리 테스트 케이스 작성
+  - [x] 흑백 변환 테스트
+  - [x] CLAHE 대비 보정 테스트
+  - [x] Deskew 기능 테스트
+  - [x] 노이즈 제거 테스트
+  - [x] Adaptive Threshold 테스트
+- [x] 이미지 품질 검증 테스트
+- [x] 전처리 옵션별 결과 비교 테스트
 
 **구현**
-- [ ] ImageProcessor 클래스 기본 구조 작성
-- [ ] convert_to_grayscale() 메서드 구현
-- [ ] apply_clahe() 메서드 구현
-- [ ] deskew_image() 메서드 구현
-- [ ] remove_noise() 메서드 구현
-- [ ] apply_adaptive_threshold() 메서드 구현
-- [ ] preprocess_pipeline() 메서드 구현
-- [ ] 모든 테스트 통과 확인
+- [x] ImageProcessor 클래스 기본 구조 작성
+- [x] convert_to_grayscale() 메서드 구현
+- [x] apply_clahe() 메서드 구현
+- [x] deskew_image() 메서드 구현
+- [x] remove_noise() 메서드 구현
+- [x] apply_adaptive_threshold() 메서드 구현
+- [x] preprocess_pipeline() 메서드 구현
+- [x] 모든 테스트 통과 확인 (20개 테스트 모두 통과)
 
 #### 2.4 OCREngine 클래스 (core/ocr_engine.py)
 
