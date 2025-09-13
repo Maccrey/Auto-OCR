@@ -20,7 +20,16 @@
       "Bash(python -m pytest tests/test_api/test_upload_api.py::TestUploadEndpoint -k \"valid_pdf_success or empty_file or invalid_file_type\" -v)",
       "Bash(python -m pytest tests/test_api/test_upload_api.py::TestUploadStatus -v)",
       "Bash(python -m pytest tests/test_api/test_upload_api.py::TestCleanupAndMaintenance -v)",
-      "Bash(python -m pytest tests/test_api/test_upload_api.py::TestUploadEndpoint -k \"not rate_limiting and not multiple_files and not storage_error\" -v)"
+      "Bash(python -m pytest tests/test_api/test_upload_api.py::TestUploadEndpoint -k \"not rate_limiting and not multiple_files and not storage_error\" -v)",
+      "Bash(python -m pytest tests/test_api/test_processing_api.py -v)",
+      "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingStart::test_start_processing_invalid_ocr_engine -v -s)",
+      "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingStart::test_start_processing_default_options -v -s)",
+      "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingStatus::test_get_processing_status_pending -v -s)",
+      "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingStatus::test_get_processing_status_in_progress -v -s)",
+      "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingSettings::test_update_processing_settings_success -v -s)",
+      "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingStart::test_start_processing_duplicate_request -v -s)",
+      "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingMetrics::test_get_processing_metrics -v -s)",
+      "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingMetrics::test_get_processing_performance_stats -v -s)"
     ],
     "deny": [],
     "ask": []
