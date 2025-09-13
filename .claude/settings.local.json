@@ -11,7 +11,16 @@
       "Bash(python -m pytest tests/test_core/test_image_processor.py -v)",
       "Bash(python -m pytest tests/test_core/test_ocr_engine.py -v)",
       "Bash(pip3 install:*)",
-      "Bash(python -m pytest tests/test_core/test_file_generator.py -v)"
+      "Bash(python -m pytest tests/test_core/test_file_generator.py -v)",
+      "Bash(python -m pytest tests/test_api/test_upload_api.py -v)",
+      "Bash(python -m pytest tests/test_api/test_upload_api.py::TestUploadEndpoint::test_upload_valid_pdf_success -v)",
+      "Bash(python -m pytest tests/test_api/test_upload_api.py::TestUploadStatus::test_get_upload_status_success -v)",
+      "Bash(python -m pytest tests/test_api/test_upload_api.py::TestCleanupAndMaintenance::test_health_check -v)",
+      "Bash(python -m pytest tests/test_api/test_upload_api.py::TestCleanupAndMaintenance::test_health_check -v -s)",
+      "Bash(python -m pytest tests/test_api/test_upload_api.py::TestUploadEndpoint -k \"valid_pdf_success or empty_file or invalid_file_type\" -v)",
+      "Bash(python -m pytest tests/test_api/test_upload_api.py::TestUploadStatus -v)",
+      "Bash(python -m pytest tests/test_api/test_upload_api.py::TestCleanupAndMaintenance -v)",
+      "Bash(python -m pytest tests/test_api/test_upload_api.py::TestUploadEndpoint -k \"not rate_limiting and not multiple_files and not storage_error\" -v)"
     ],
     "deny": [],
     "ask": []
