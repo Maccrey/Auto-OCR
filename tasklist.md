@@ -205,18 +205,24 @@
 #### 3.3 Download API (api/download.py)
 
 **테스트 작성**
-- [ ] test_download_api.py 생성
-- [ ] 파일 다운로드 테스트
-- [ ] 권한 확인 테스트
-- [ ] 파일 만료 처리 테스트
-- [ ] 임시 파일 정리 테스트
+- [x] test_download_api.py 생성
+- [x] 파일 다운로드 테스트
+- [x] 권한 확인 테스트
+- [x] 파일 만료 처리 테스트
+- [x] 임시 파일 정리 테스트
 
 **구현**
-- [ ] GET /api/download/{process_id} 엔드포인트 구현
-- [ ] DELETE /api/download/{process_id} 엔드포인트 구현
-- [ ] 파일 접근 권한 검증 구현
-- [ ] 자동 파일 정리 구현
-- [ ] 모든 테스트 통과 확인
+- [x] GET /api/download/{process_id} 엔드포인트 구현
+- [x] DELETE /api/download/{process_id} 엔드포인트 구현
+- [x] GET /api/download/{process_id}/info 엔드포인트 구현
+- [x] GET /api/download-stats/statistics 엔드포인트 구현
+- [x] GET /api/download-stats/usage 엔드포인트 구현
+- [x] DELETE /api/download/cleanup/expired 엔드포인트 구현
+- [x] GET /api/download/health 헬스체크 엔드포인트 구현
+- [x] 파일 접근 권한 검증 구현 (사용자별 접근 제어)
+- [x] 보안 기능 구현 (속도 제한, IP 화이트리스트, 토큰 인증)
+- [x] 자동 파일 정리 구현 (만료된 파일 일괄 정리)
+- [x] 모든 테스트 통과 확인 (24/24 테스트 통과)
 
 ### Phase 4: Frontend 개발
 

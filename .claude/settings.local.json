@@ -29,7 +29,8 @@
       "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingSettings::test_update_processing_settings_success -v -s)",
       "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingStart::test_start_processing_duplicate_request -v -s)",
       "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingMetrics::test_get_processing_metrics -v -s)",
-      "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingMetrics::test_get_processing_performance_stats -v -s)"
+      "Bash(python -m pytest tests/test_api/test_processing_api.py::TestProcessingMetrics::test_get_processing_performance_stats -v -s)",
+      "Bash(python -m pytest tests/test_api/test_download_api.py -v)"
     ],
     "deny": [],
     "ask": []
