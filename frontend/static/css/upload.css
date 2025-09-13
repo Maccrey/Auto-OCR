@@ -1,0 +1,609 @@
+/*
+ * K-OCR Web Corrector - Upload CSS
+ * 파일 업로드 관련 스타일
+ */
+
+/* 업로드 섹션 */
+.upload-section {
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.upload-container {
+  padding: var(--spacing-xl);
+}
+
+/* 업로드 영역 */
+.upload-area {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  text-align: center;
+  margin-bottom: var(--spacing-xl);
+  transition: all var(--transition-normal);
+  position: relative;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: var(--bg-secondary);
+}
+
+.upload-area:hover {
+  border-color: var(--secondary-color);
+  background: rgba(52, 152, 219, 0.05);
+}
+
+.upload-area.drag-over {
+  border-color: var(--success-color);
+  background: rgba(39, 174, 96, 0.1);
+  transform: scale(1.02);
+}
+
+.upload-area.drag-over .upload-icon {
+  transform: scale(1.1);
+  color: var(--success-color);
+}
+
+.upload-area.has-file {
+  border-color: var(--success-color);
+  border-style: solid;
+  background: rgba(39, 174, 96, 0.05);
+}
+
+/* 업로드 메시지 */
+.upload-message {
+  transition: opacity var(--transition-normal);
+}
+
+.upload-icon {
+  font-size: 4rem;
+  color: var(--text-muted);
+  margin-bottom: var(--spacing-lg);
+  transition: all var(--transition-normal);
+}
+
+.upload-message h3 {
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-md);
+  font-weight: 600;
+}
+
+.upload-instruction {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-lg);
+}
+
+.file-requirements {
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.file-requirements i {
+  color: var(--info-color);
+}
+
+/* 업로드 버튼 */
+.upload-button {
+  background: var(--secondary-color);
+  color: var(--text-light);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md) var(--spacing-xl);
+  font-size: var(--font-lg);
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.upload-button:hover {
+  background: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.upload-button:active {
+  transform: translateY(0);
+}
+
+.upload-button:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 파일 정보 */
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  background: var(--bg-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: opacity var(--transition-normal);
+}
+
+.file-icon {
+  font-size: 3rem;
+  color: var(--accent-color);
+  flex-shrink: 0;
+}
+
+.file-details {
+  flex: 1;
+  text-align: left;
+}
+
+.file-name {
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-xs);
+  word-break: break-all;
+}
+
+.file-size,
+.file-pages {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.remove-file {
+  background: var(--accent-color);
+  color: var(--text-light);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.remove-file:hover {
+  background: #c0392b;
+  transform: scale(1.1);
+}
+
+/* 업로드 진행률 */
+.upload-progress {
+  width: 100%;
+  transition: opacity var(--transition-normal);
+}
+
+.upload-progress .progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-bottom: var(--spacing-md);
+}
+
+.upload-progress .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--secondary-color), var(--success-color));
+  border-radius: var(--radius-sm);
+  transition: width var(--transition-normal);
+  width: 0%;
+}
+
+.upload-status {
+  color: var(--text-secondary);
+  text-align: center;
+  font-size: var(--font-sm);
+  margin: 0;
+}
+
+/* 설정 섹션 */
+.settings-section {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.settings-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  color: var(--primary-color);
+  font-size: var(--font-xl);
+}
+
+.settings-title i {
+  color: var(--secondary-color);
+}
+
+/* 설정 그룹 */
+.setting-group {
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.setting-group:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.setting-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.setting-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: 500;
+  color: var(--primary-color);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.setting-label:hover {
+  color: var(--secondary-color);
+}
+
+.setting-label i {
+  color: var(--secondary-color);
+}
+
+/* 커스텀 체크박스 */
+.setting-label input[type="checkbox"] {
+  display: none;
+}
+
+.checkmark {
+  width: 20px;
+  height: 20px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  position: relative;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.setting-label input[type="checkbox"]:checked + .checkmark {
+  background: var(--secondary-color);
+  border-color: var(--secondary-color);
+}
+
+.setting-label input[type="checkbox"]:checked + .checkmark::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* 설정 정보 버튼 */
+.setting-info {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.setting-info:hover {
+  color: var(--secondary-color);
+  background: rgba(52, 152, 219, 0.1);
+}
+
+/* 설정 세부사항 */
+.setting-details {
+  margin-left: var(--spacing-lg);
+  padding-left: var(--spacing-lg);
+  border-left: 2px solid var(--border-light);
+}
+
+.sub-setting {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.sub-setting:last-child {
+  margin-bottom: 0;
+}
+
+.sub-setting .checkmark {
+  width: 16px;
+  height: 16px;
+}
+
+.sub-setting input[type="checkbox"]:checked + .checkmark::after {
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+}
+
+/* 선택 박스 */
+.setting-select {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-md);
+  transition: border-color var(--transition-fast);
+}
+
+.setting-select:focus {
+  border-color: var(--secondary-color);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.setting-description {
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-sm);
+  color: var(--text-muted);
+  margin-bottom: 0;
+}
+
+/* 고급 설정 */
+.advanced-settings {
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+}
+
+.advanced-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: var(--font-md);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  width: 100%;
+  text-align: left;
+}
+
+.advanced-toggle:hover {
+  color: var(--primary-color);
+}
+
+.advanced-toggle i {
+  transition: transform var(--transition-fast);
+}
+
+.advanced-toggle.expanded i {
+  transform: rotate(180deg);
+}
+
+.advanced-content {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--border-light);
+}
+
+.setting-item {
+  margin-bottom: var(--spacing-lg);
+}
+
+.setting-item:last-child {
+  margin-bottom: 0;
+}
+
+.setting-item .setting-label {
+  margin-bottom: var(--spacing-sm);
+  font-size: var(--font-sm);
+}
+
+/* 처리 버튼 */
+.process-button {
+  width: 100%;
+  background: linear-gradient(135deg, var(--success-color) 0%, #229954 100%);
+  color: var(--text-light);
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  font-size: var(--font-xl);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-md);
+}
+
+.process-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  background: linear-gradient(135deg, #229954 0%, var(--success-color) 100%);
+}
+
+.process-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.process-button:disabled {
+  background: var(--text-muted);
+  cursor: not-allowed;
+  transform: none;
+  opacity: 0.6;
+}
+
+.process-button i {
+  font-size: var(--font-lg);
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .upload-container {
+    padding: var(--spacing-lg);
+  }
+
+  .upload-area {
+    padding: var(--spacing-lg);
+    min-height: 150px;
+  }
+
+  .upload-icon {
+    font-size: 3rem;
+  }
+
+  .upload-message h3 {
+    font-size: var(--font-xl);
+  }
+
+  .upload-instruction {
+    font-size: var(--font-md);
+  }
+
+  .upload-button {
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: var(--font-md);
+  }
+
+  .file-info {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-md);
+  }
+
+  .file-details {
+    text-align: center;
+  }
+
+  .settings-section {
+    padding: var(--spacing-lg);
+  }
+
+  .setting-details {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+    margin-top: var(--spacing-md);
+  }
+
+  .process-button {
+    font-size: var(--font-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
+  }
+}
+
+@media (max-width: 480px) {
+  .upload-area {
+    padding: var(--spacing-md);
+  }
+
+  .upload-icon {
+    font-size: 2.5rem;
+  }
+
+  .file-requirements {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .setting-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+  }
+}
+
+/* 툴팁 */
+.tooltip {
+  position: absolute;
+  background: var(--bg-dark);
+  color: var(--text-light);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+  z-index: var(--z-tooltip);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--bg-dark) transparent transparent transparent;
+}
+
+.tooltip.show {
+  opacity: 1;
+}
+
+/* 접근성 향상 */
+@media (prefers-reduced-motion: reduce) {
+  .upload-area,
+  .upload-button,
+  .file-info,
+  .checkmark,
+  .process-button {
+    transition: none;
+  }
+
+  .upload-area.drag-over {
+    transform: none;
+  }
+
+  .upload-button:hover,
+  .process-button:hover {
+    transform: none;
+  }
+}

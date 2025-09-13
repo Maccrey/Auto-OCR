@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="한국어 문서 OCR 및 교정 웹 서비스 - PDF 파일을 업로드하여 텍스트로 변환하고 교정합니다">
+    <meta name="keywords" content="OCR, 한국어, PDF, 텍스트 변환, 교정, 웹 서비스">
+    <meta name="author" content="K-OCR Web Corrector">
+
+    <title>K-OCR Web Corrector - 한국어 문서 OCR 및 교정 서비스</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/static/images/favicon.ico">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="/static/css/main.css">
+    <link rel="stylesheet" href="/static/css/upload.css">
+    <link rel="stylesheet" href="/static/css/progress.css">
+
+    <!-- Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Loading Spinner -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>처리 중...</p>
+    </div>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">
+                    <i class="fas fa-file-pdf"></i>
+                    K-OCR Web Corrector
+                </h1>
+                <p class="subtitle">한국어 문서 OCR 및 교정 서비스</p>
+                <p class="description">PDF 문서를 업로드하여 고품질 한국어 텍스트로 변환하고 자동 교정합니다</p>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section" id="upload-section">
+                <div class="upload-container">
+                    <!-- File Upload Area -->
+                    <div class="upload-area" id="upload-zone">
+                        <input type="file" id="file-input" accept=".pdf" style="display: none;" aria-label="PDF 파일 선택">
+
+                        <!-- Upload Message (Default State) -->
+                        <div class="upload-message" id="upload-message">
+                            <div class="upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <h3>PDF 파일을 업로드하세요</h3>
+                            <p class="upload-instruction">
+                                파일을 드래그하여 놓거나 아래 버튼을 클릭하세요
+                            </p>
+                            <p class="file-requirements">
+                                <i class="fas fa-info-circle"></i>
+                                지원 형식: PDF | 최대 크기: 50MB
+                            </p>
+                            <button type="button" class="upload-button" id="upload-button">
+                                <i class="fas fa-folder-open"></i>
+                                파일 선택
+                            </button>
+                        </div>
+
+                        <!-- File Info (After Upload) -->
+                        <div class="file-info" id="file-info" style="display: none;">
+                            <div class="file-icon">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                            <div class="file-details">
+                                <p class="file-name" id="file-name"></p>
+                                <p class="file-size" id="file-size"></p>
+                                <p class="file-pages" id="file-pages"></p>
+                            </div>
+                            <button type="button" class="remove-file" id="remove-file" aria-label="파일 제거">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <!-- Upload Progress -->
+                        <div class="upload-progress" id="upload-progress" style="display: none;">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="upload-progress-fill"></div>
+                            </div>
+                            <p class="upload-status" id="upload-status">파일 업로드 중...</p>
+                        </div>
+                    </div>
+
+                    <!-- Processing Settings -->
+                    <div class="settings-section" id="settings-section">
+                        <h4 class="settings-title">
+                            <i class="fas fa-cogs"></i>
+                            처리 설정
+                        </h4>
+
+                        <!-- Preprocessing Settings -->
+                        <div class="setting-group">
+                            <div class="setting-header">
+                                <label class="setting-label">
+                                    <input type="checkbox" id="preprocessing-enabled" checked>
+                                    <span class="checkmark"></span>
+                                    이미지 전처리 활성화
+                                </label>
+                                <button type="button" class="setting-info" data-tooltip="이미지 품질을 향상시켜 OCR 정확도를 높입니다">
+                                    <i class="fas fa-question-circle"></i>
+                                </button>
+                            </div>
+                            <div class="setting-details" id="preprocessing-details">
+                                <label class="sub-setting">
+                                    <input type="checkbox" id="clahe-enabled" checked>
+                                    <span class="checkmark"></span>
+                                    대비 향상 (CLAHE)
+                                </label>
+                                <label class="sub-setting">
+                                    <input type="checkbox" id="deskew-enabled" checked>
+                                    <span class="checkmark"></span>
+                                    기울기 보정
+                                </label>
+                                <label class="sub-setting">
+                                    <input type="checkbox" id="noise-removal" checked>
+                                    <span class="checkmark"></span>
+                                    노이즈 제거
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- OCR Engine Selection -->
+                        <div class="setting-group">
+                            <label class="setting-label" for="ocr-engine">
+                                <i class="fas fa-robot"></i>
+                                OCR 엔진
+                            </label>
+                            <select id="ocr-engine" class="setting-select">
+                                <option value="paddle" selected>PaddleOCR (추천)</option>
+                                <option value="tesseract">Tesseract</option>
+                                <option value="ensemble">앙상블 (느림, 높은 정확도)</option>
+                            </select>
+                            <p class="setting-description">PaddleOCR은 한국어 인식에 최적화되어 있습니다</p>
+                        </div>
+
+                        <!-- Text Correction Settings -->
+                        <div class="setting-group">
+                            <div class="setting-header">
+                                <label class="setting-label">
+                                    <input type="checkbox" id="text-correction" checked>
+                                    <span class="checkmark"></span>
+                                    텍스트 교정 활성화
+                                </label>
+                                <button type="button" class="setting-info" data-tooltip="OCR 결과의 맞춤법과 띄어쓰기를 자동으로 교정합니다">
+                                    <i class="fas fa-question-circle"></i>
+                                </button>
+                            </div>
+                            <div class="setting-details" id="correction-details">
+                                <label class="sub-setting">
+                                    <input type="checkbox" id="spacing-correction" checked>
+                                    <span class="checkmark"></span>
+                                    띄어쓰기 교정
+                                </label>
+                                <label class="sub-setting">
+                                    <input type="checkbox" id="spelling-correction" checked>
+                                    <span class="checkmark"></span>
+                                    맞춤법 교정
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Advanced Settings (Collapsible) -->
+                        <div class="setting-group advanced-settings">
+                            <button type="button" class="advanced-toggle" id="advanced-toggle">
+                                <i class="fas fa-chevron-down"></i>
+                                고급 설정
+                            </button>
+                            <div class="advanced-content" id="advanced-content" style="display: none;">
+                                <div class="setting-item">
+                                    <label class="setting-label" for="dpi-setting">
+                                        이미지 DPI
+                                    </label>
+                                    <select id="dpi-setting" class="setting-select">
+                                        <option value="300" selected>300 DPI (권장)</option>
+                                        <option value="200">200 DPI (빠름)</option>
+                                        <option value="400">400 DPI (느림, 고품질)</option>
+                                    </select>
+                                </div>
+                                <div class="setting-item">
+                                    <label class="setting-label" for="language-model">
+                                        언어 모델
+                                    </label>
+                                    <select id="language-model" class="setting-select">
+                                        <option value="ko" selected>한국어</option>
+                                        <option value="ko+en">한국어 + 영어</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Process Button -->
+                    <button type="button" class="process-button" id="process-button" disabled>
+                        <i class="fas fa-play"></i>
+                        <span>처리 시작</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- Progress Section -->
+            <section class="progress-section" id="progress-section" style="display: none;">
+                <div class="progress-container">
+                    <h3 class="progress-title">문서 처리 중...</h3>
+
+                    <!-- Overall Progress -->
+                    <div class="overall-progress">
+                        <div class="progress-bar main-progress">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <div class="progress-info">
+                            <span class="progress-percentage" id="progress-percentage">0%</span>
+                            <span class="progress-text" id="progress-text">준비 중...</span>
+                        </div>
+                    </div>
+
+                    <!-- Progress Steps -->
+                    <div class="progress-steps">
+                        <div class="step" data-step="upload" id="step-upload">
+                            <div class="step-icon">
+                                <i class="fas fa-upload"></i>
+                            </div>
+                            <div class="step-content">
+                                <h4>파일 업로드</h4>
+                                <p>PDF 파일 업로드 완료</p>
+                            </div>
+                            <div class="step-status">
+                                <i class="fas fa-check"></i>
+                            </div>
+                        </div>
+
+                        <div class="step" data-step="convert" id="step-convert">
+                            <div class="step-icon">
+                                <i class="fas fa-image"></i>
+                            </div>
+                            <div class="step-content">
+                                <h4>PDF 변환</h4>
+                                <p>PDF를 이미지로 변환 중</p>
+                            </div>
+                            <div class="step-status">
+                                <div class="spinner-small"></div>
+                            </div>
+                        </div>
+
+                        <div class="step" data-step="preprocess" id="step-preprocess">
+                            <div class="step-icon">
+                                <i class="fas fa-adjust"></i>
+                            </div>
+                            <div class="step-content">
+                                <h4>이미지 전처리</h4>
+                                <p>이미지 품질 향상 중</p>
+                            </div>
+                            <div class="step-status">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                        </div>
+
+                        <div class="step" data-step="ocr" id="step-ocr">
+                            <div class="step-icon">
+                                <i class="fas fa-eye"></i>
+                            </div>
+                            <div class="step-content">
+                                <h4>OCR 처리</h4>
+                                <p>텍스트 인식 중</p>
+                            </div>
+                            <div class="step-status">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                        </div>
+
+                        <div class="step" data-step="correct" id="step-correct">
+                            <div class="step-icon">
+                                <i class="fas fa-spell-check"></i>
+                            </div>
+                            <div class="step-content">
+                                <h4>텍스트 교정</h4>
+                                <p>맞춤법 및 띄어쓰기 교정 중</p>
+                            </div>
+                            <div class="step-status">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                        </div>
+
+                        <div class="step" data-step="complete" id="step-complete">
+                            <div class="step-icon">
+                                <i class="fas fa-flag-checkered"></i>
+                            </div>
+                            <div class="step-content">
+                                <h4>처리 완료</h4>
+                                <p>다운로드 준비 완료</p>
+                            </div>
+                            <div class="step-status">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cancel Button -->
+                    <button type="button" class="cancel-button" id="cancel-button">
+                        <i class="fas fa-stop"></i>
+                        처리 취소
+                    </button>
+
+                    <!-- Estimated Time -->
+                    <div class="time-estimate">
+                        <i class="fas fa-clock"></i>
+                        <span>예상 소요 시간: <span id="estimated-time">계산 중...</span></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Result Section -->
+            <section class="result-section" id="result-section" style="display: none;">
+                <div class="result-container">
+                    <div class="result-header">
+                        <div class="success-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h3>처리 완료!</h3>
+                        <p>OCR 처리 및 텍스트 교정이 완료되었습니다</p>
+                    </div>
+
+                    <!-- Processing Summary -->
+                    <div class="result-summary">
+                        <div class="summary-item">
+                            <i class="fas fa-file-alt"></i>
+                            <div>
+                                <label>파일명</label>
+                                <span id="result-filename"></span>
+                            </div>
+                        </div>
+                        <div class="summary-item">
+                            <i class="fas fa-copy"></i>
+                            <div>
+                                <label>페이지 수</label>
+                                <span id="result-pages"></span>
+                            </div>
+                        </div>
+                        <div class="summary-item">
+                            <i class="fas fa-clock"></i>
+                            <div>
+                                <label>처리 시간</label>
+                                <span id="result-processing-time"></span>
+                            </div>
+                        </div>
+                        <div class="summary-item">
+                            <i class="fas fa-percentage"></i>
+                            <div>
+                                <label>OCR 신뢰도</label>
+                                <span id="result-confidence"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Text Preview -->
+                    <div class="text-preview">
+                        <h4>
+                            <i class="fas fa-eye"></i>
+                            텍스트 미리보기
+                        </h4>
+                        <div class="preview-content" id="preview-content">
+                            <p>처리된 텍스트가 여기에 표시됩니다...</p>
+                        </div>
+                        <button type="button" class="preview-toggle" id="preview-toggle">
+                            <span>전체 보기</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="result-actions">
+                        <a href="#" class="download-button primary" id="download-button">
+                            <i class="fas fa-download"></i>
+                            텍스트 파일 다운로드
+                        </a>
+                        <button type="button" class="action-button secondary" id="copy-text-button">
+                            <i class="fas fa-copy"></i>
+                            텍스트 복사
+                        </button>
+                        <button type="button" class="action-button secondary" id="share-button">
+                            <i class="fas fa-share"></i>
+                            공유
+                        </button>
+                    </div>
+
+                    <!-- New Upload -->
+                    <div class="new-upload">
+                        <button type="button" class="new-upload-button" id="new-upload-button">
+                            <i class="fas fa-plus"></i>
+                            새 파일 업로드
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section class="error-section" id="error-section" style="display: none;">
+                <div class="error-container">
+                    <div class="error-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3>처리 중 오류가 발생했습니다</h3>
+                    <p class="error-message" id="error-message">알 수 없는 오류가 발생했습니다. 다시 시도해주세요.</p>
+
+                    <div class="error-actions">
+                        <button type="button" class="retry-button" id="retry-button">
+                            <i class="fas fa-redo"></i>
+                            다시 시도
+                        </button>
+                        <button type="button" class="back-to-upload-button" id="back-to-upload-button">
+                            <i class="fas fa-arrow-left"></i>
+                            처음으로
+                        </button>
+                    </div>
+
+                    <details class="error-details">
+                        <summary>기술적 세부사항</summary>
+                        <pre id="error-technical-details">오류 정보가 없습니다.</pre>
+                    </details>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>K-OCR Web Corrector</h4>
+                    <p>고품질 한국어 문서 OCR 및 교정 서비스</p>
+                </div>
+                <div class="footer-section">
+                    <h4>지원</h4>
+                    <ul>
+                        <li><a href="#help">도움말</a></li>
+                        <li><a href="#faq">자주 묻는 질문</a></li>
+                        <li><a href="#contact">문의하기</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>정보</h4>
+                    <ul>
+                        <li><a href="#privacy">개인정보처리방침</a></li>
+                        <li><a href="#terms">이용약관</a></li>
+                        <li><a href="#about">서비스 소개</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 K-OCR Web Corrector. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip" style="display: none;"></div>
+
+    <!-- JavaScript -->
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/upload.js"></script>
+    <script src="/static/js/progress.js"></script>
+    <script src="/static/js/ui.js"></script>
+</body>
+</html>
