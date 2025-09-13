@@ -1,0 +1,29 @@
+[flake8]
+max-line-length = 88
+extend-ignore = 
+    # E203: whitespace before ':'
+    E203,
+    # W503: line break before binary operator
+    W503,
+    # F401: module imported but unused (handled by isort/mypy)
+    F401
+exclude = 
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    .eggs,
+    *.egg,
+    build,
+    dist,
+    .mypy_cache,
+    .pytest_cache,
+    htmlcov
+per-file-ignores =
+    # Tests can use assert statements and unused imports
+    tests/*:S101,F401,F811
+    # __init__.py files can have unused imports
+    __init__.py:F401
+max-complexity = 10
+import-order-style = google
+application-import-names = backend,tests

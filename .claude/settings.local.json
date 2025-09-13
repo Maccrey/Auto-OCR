@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_utils/test_temp_storage.py -v)",
+      "Bash(python3:*)",
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m pytest tests/test_utils/test_temp_storage.py::TestTempStorage::test_cleanup_expired_files_removes_old_files -v)",
+      "Bash(python -m pytest tests/test_core/test_pdf_converter.py -v)",
+      "Bash(python -m pytest tests/test_core/test_pdf_converter.py::TestPDFConverter::test_convert_with_custom_dpi -v)",
+      "Bash(python -m pytest tests/test_core/test_image_processor.py -v)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

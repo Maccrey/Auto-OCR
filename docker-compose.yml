@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  # Redis - 메시지 브로커 및 결과 백엔드
+  redis:
+    image: redis:7-alpine
+    container_name: k-ocr-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - k-ocr-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI 웹 애플리케이션
+  web:
+    build:
+      context: .
+      target: development
+    container_name: k-ocr-web
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - temp_storage:/app/temp_storage
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - ENVIRONMENT=development
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - k-ocr-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Celery Worker - 백그라운드 작업 처리
+  worker:
+    build:
+      context: .
+      target: development
+    container_name: k-ocr-worker
+    command: celery -A backend.core.tasks worker --loglevel=info --concurrency=2
+    volumes:
+      - .:/app
+      - temp_storage:/app/temp_storage
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - ENVIRONMENT=development
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - k-ocr-network
+    healthcheck:
+      test: ["CMD", "celery", "-A", "backend.core.tasks", "inspect", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Celery Flower - 모니터링 (개발 환경용)
+  flower:
+    build:
+      context: .
+      target: development
+    container_name: k-ocr-flower
+    command: celery -A backend.core.tasks flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - worker
+    networks:
+      - k-ocr-network
+
+volumes:
+  redis_data:
+  temp_storage:
+
+networks:
+  k-ocr-network:
+    driver: bridge
