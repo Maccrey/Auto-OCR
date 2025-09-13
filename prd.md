@@ -1,128 +1,106 @@
-# K-OCR Web Corrector - 상세 제품 요구사항 문서 (PRD)
-## AI 개발 최적화 웹 버전
+# K-OCR Corrector - 상세 제품 요구사항 문서 (PRD)
+
+## AI 개발 최적화 버전
 
 ### 1. 제품 개요
 
-**제품명**: K-OCR Web Corrector (한국어 문서 OCR & 교정 웹 서비스)
+**제품명**: K-OCR Corrector (한국어 문서 OCR & 교정 도구)
 
-**목표**: PDF 문서를 업로드하여 PNG로 변환 후 전처리 및 OCR을 통해 정확한 한국어 텍스트 파일로 다운로드할 수 있는 웹 애플리케이션
+**목표**: PDF/이미지 문서를 정확한 한국어 텍스트로 변환하는 GUI 애플리케이션
 
 **핵심 가치**:
+
 - **정확성**: 최적화된 전처리와 교정으로 OCR 인식률 극대화
-- **사용자 친화성**: 직관적인 웹 인터페이스
-- **편의성**: 브라우저만으로 접근 가능한 웹 서비스
-- **효율성**: PDF 업로드 → PNG 변환 → 전처리 → OCR → 텍스트 다운로드의 간소화된 워크플로우
+- **사용자 친화성**: 직관적인 GUI 환경
+- **투명성**: 상세한 교정 리포트 제공
 
 ### 2. 아키텍처 설계
 
 #### 2.1 전체 아키텍처
-```
-Frontend Layer (HTML/CSS/JavaScript)
-├── File Upload Interface
-├── Progress Display
-├── Settings Panel (간소화)
-└── Download Interface
 
-Backend API Layer (FastAPI)
-├── File Upload Endpoint
-├── Processing Status Endpoint
-├── Settings Configuration Endpoint
-└── Result Download Endpoint
+```
+GUI Layer (PySide6)
+├── Main Window
+├── Settings Panel
+├── Preview Panel
+└── Report Panel
 
 Business Logic Layer
-├── PDF Converter (PDF → PNG)
-├── Image Preprocessor
+├── Document Processor
 ├── OCR Engine Manager
 ├── Text Corrector
-└── File Generator
+└── Report Generator
 
 Data Layer
-├── Temporary File Storage
+├── File Handler
 ├── Configuration Manager
-└── Result Cache
+└── Result Storage
 ```
 
 #### 2.2 모듈 구조
+
 ```
-k_ocr_web_corrector/
-├── frontend/
-│   ├── static/
-│   │   ├── css/
-│   │   ├── js/
-│   │   └── images/
-│   └── templates/
-│       ├── index.html
-│       ├── upload.html
-│       └── result.html
-├── backend/
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── upload.py
-│   │   ├── processing.py
-│   │   └── download.py
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── pdf_converter.py
-│   │   ├── image_processor.py
-│   │   ├── ocr_engine.py
-│   │   ├── text_corrector.py
-│   │   └── file_generator.py
-│   ├── utils/
-│   │   ├── __init__.py
-│   │   ├── file_handler.py
-│   │   ├── config_manager.py
-│   │   └── temp_storage.py
-│   └── main.py
+k_ocr_corrector/
+├── gui/
+│   ├── __init__.py
+│   ├── main_window.py
+│   ├── settings_panel.py
+│   ├── preview_panel.py
+│   └── report_panel.py
+├── core/
+│   ├── __init__.py
+│   ├── document_processor.py
+│   ├── ocr_engine.py
+│   ├── text_corrector.py
+│   └── report_generator.py
+├── utils/
+│   ├── __init__.py
+│   ├── file_handler.py
+│   ├── config_manager.py
+│   └── image_processor.py
 ├── tests/
 │   ├── __init__.py
-│   ├── test_api/
-│   ├── test_core/
-│   └── test_utils/
-├── temp_storage/
-├── config/
-└── requirements.txt
+│   ├── test_document_processor.py
+│   ├── test_ocr_engine.py
+│   ├── test_text_corrector.py
+│   └── test_gui/
+└── resources/
+    ├── test_documents/
+    └── config/
 ```
 
 ### 3. 상세 기능 요구사항
 
 #### 3.1 Core Module 요구사항
 
-##### 3.1.1 PDFConverter 클래스
-**목적**: 업로드된 PDF 파일을 PNG 이미지로 변환
+##### 3.1.1 DocumentProcessor 클래스
+
+**목적**: PDF/이미지 파일 처리 및 전처리 담당
 
 **주요 메서드**:
-```python
-class PDFConverter:
-    def convert_pdf_to_png(self, pdf_path: str, output_dir: str) -> List[str]
-    def validate_pdf(self, pdf_path: str) -> bool
-    def get_pdf_info(self, pdf_path: str) -> Dict[str, Any]
-    def estimate_processing_time(self, pdf_path: str) -> int
-```
 
-##### 3.1.2 ImageProcessor 클래스
-**목적**: PNG 이미지 전처리 및 품질 향상
-
-**주요 메서드**:
 ```python
-class ImageProcessor:
-    def preprocess_image(self, image_path: str, options: PreprocessOptions) -> str
-    def apply_clahe(self, image_path: str) -> str
-    def deskew_image(self, image_path: str) -> str
-    def remove_noise(self, image_path: str) -> str
-    def adaptive_threshold(self, image_path: str) -> str
+class DocumentProcessor:
+    def load_file(self, file_path: str) -> bool
+    def convert_pdf_to_images(self) -> List[Image]
+    def preprocess_image(self, image: Image, options: PreprocessOptions) -> Image
+    def get_preprocessing_preview(self, image: Image) -> Dict[str, Image]
 ```
 
 **전처리 옵션**:
+
 - 흑백 변환 + CLAHE 대비 보정
 - Deskew (기울기 보정)
 - 노이즈 제거 + 테두리 제거
 - Adaptive Threshold 이진화
 - 텍스트 슈퍼해상도 (선택사항)
 
-##### 3.1.3 OCREngine 클래스
+##### 3.1.2 OCREngine 클래스
+
 **목적**: 다중 OCR 엔진 관리 및 실행
 
 **주요 메서드**:
+
 ```python
 class OCREngine:
     def set_engine(self, engine_type: str) -> None
@@ -132,14 +110,17 @@ class OCREngine:
 ```
 
 **지원 엔진**:
+
 - PaddleOCR (korean) - 기본 엔진
 - Tesseract (kor) - 보조 엔진
 - 클라우드 API (Google, Naver, MS) - 선택사항
 
-##### 3.1.4 TextCorrector 클래스
+##### 3.1.3 TextCorrector 클래스
+
 **목적**: 한국어 텍스트 교정 및 후처리
 
 **주요 메서드**:
+
 ```python
 class TextCorrector:
     def correct_spacing(self, text: str) -> str
@@ -149,133 +130,104 @@ class TextCorrector:
 ```
 
 **교정 기능**:
+
 - KoSpacing을 이용한 띄어쓰기 교정
 - Hanspell을 이용한 맞춤법 교정
 - 사용자 정의 사전 적용
 - OCR 오류 패턴 규칙 기반 교정
 
-##### 3.1.5 FileGenerator 클래스
-**목적**: 최종 텍스트 파일 생성 및 다운로드 준비
+##### 3.1.4 ReportGenerator 클래스
+
+**목적**: 교정 리포트 생성 및 통계 계산
 
 **주요 메서드**:
+
 ```python
-class FileGenerator:
-    def generate_text_file(self, corrected_text: str, output_path: str) -> str
-    def create_download_response(self, file_path: str) -> Response
-    def cleanup_temp_files(self, file_paths: List[str]) -> None
-    def get_file_download_url(self, file_id: str) -> str
+class ReportGenerator:
+    def calculate_cer_wer(self, original: str, corrected: str) -> Tuple[float, float]
+    def generate_diff_report(self, original: str, corrected: str) -> DiffReport
+    def export_results(self, format: str, output_path: str) -> bool
 ```
 
-#### 3.2 Web API Module 요구사항
+#### 3.2 GUI Module 요구사항
 
-##### 3.2.1 Upload API (api/upload.py)
+##### 3.2.1 MainWindow 클래스
+
 **기능**:
-- PDF 파일 업로드 처리
-- 파일 검증 및 임시 저장
-- 업로드 진행률 추적
-- 업로드 완료 후 처리 작업 ID 반환
 
-**엔드포인트**:
-```python
-POST /api/upload - PDF 파일 업로드
-GET /api/upload/{upload_id}/status - 업로드 상태 확인
-```
+- 파일 드래그 앤 드롭 지원
+- 메뉴바 및 툴바 제공
+- 하위 패널들의 컨테이너 역할
+- 진행 상태바 및 로그 표시
 
-##### 3.2.2 Processing API (api/processing.py)
+##### 3.2.2 SettingsPanel 클래스
+
 **기능**:
-- PDF → PNG 변환 진행률 추적
-- 전처리 및 OCR 처리 상태 관리
-- 텍스트 교정 진행률 추적
-- 실시간 상태 업데이트
 
-**엔드포인트**:
-```python
-POST /api/process/{upload_id} - 처리 시작
-GET /api/process/{process_id}/status - 처리 상태 확인
-POST /api/process/{process_id}/settings - 처리 옵션 설정
-```
+- 전처리 옵션 설정 UI
+- OCR 엔진 선택 UI
+- 교정 옵션 설정 UI
+- 설정 저장/불러오기
 
-##### 3.2.3 Download API (api/download.py)
+##### 3.2.3 PreviewPanel 클래스
+
 **기능**:
-- 완료된 텍스트 파일 다운로드
-- 임시 파일 정리
-- 다운로드 링크 만료 관리
 
-**엔드포인트**:
-```python
-GET /api/download/{process_id} - 결과 파일 다운로드
-DELETE /api/download/{process_id} - 임시 파일 삭제
-```
+- 탭 기반 미리보기 (원본/전처리/OCR/교정/diff)
+- 이미지 확대/축소 기능
+- 텍스트 편집 기능
 
-##### 3.2.4 Frontend Templates
+##### 3.2.4 ReportPanel 클래스
+
 **기능**:
-- 파일 업로드 인터페이스 (drag & drop)
-- 실시간 진행률 표시
-- 간단한 설정 옵션
-- 결과 다운로드 페이지
+
+- CER/WER 통계 표시
+- 변경사항 하이라이트
+- 내보내기 옵션
 
 ### 4. 데이터 모델
 
 #### 4.1 핵심 데이터 클래스
+
 ```python
 @dataclass
-class UploadRequest:
-    file_id: str
-    filename: str
-    file_size: int
-    upload_time: datetime
-
-@dataclass
-class ProcessingOptions:
+class PreprocessOptions:
     apply_clahe: bool = True
     deskew_enabled: bool = True
     noise_removal: bool = True
     adaptive_threshold: bool = True
     super_resolution: bool = False
-    ocr_engine: str = "paddleocr"
-
-@dataclass
-class ProcessingStatus:
-    process_id: str
-    status: str  # 'pending', 'converting', 'preprocessing', 'ocr', 'correcting', 'completed', 'failed'
-    progress: int  # 0-100
-    current_step: str
-    estimated_time_remaining: int
-    error_message: Optional[str] = None
-
-@dataclass
-class ProcessingResult:
-    process_id: str
-    original_filename: str
-    total_pages: int
-    processing_time: float
-    final_text: str
-    download_url: str
-    expires_at: datetime
 
 @dataclass
 class OCRResult:
     text: str
     confidence: float
+    line_boxes: List[BoundingBox]
     engine_used: str
-    processing_time: float
+
+@dataclass
+class CorrectionResult:
+    original_text: str
+    corrected_text: str
+    corrections: List[CorrectionItem]
+    cer_score: float
+    wer_score: float
+
+@dataclass
+class DiffItem:
+    line_number: int
+    original: str
+    corrected: str
+    change_type: str  # 'insert', 'delete', 'replace'
 ```
 
 ### 5. 기술 스택 및 의존성
 
 #### 5.1 필수 라이브러리
+
 ```
-# Web Framework
-fastapi>=0.104.0
-uvicorn>=0.24.0
-python-multipart>=0.0.6
-
-# Template Engine
-jinja2>=3.1.0
-
-# File Processing
-pdf2image>=1.16.0
-pypdf>=3.16.0
+# GUI
+PySide6>=6.5.0
 
 # OCR
 paddleocr>=2.7.0
@@ -290,108 +242,111 @@ scikit-image>=0.21.0
 kospacing>=0.4.0
 py-hanspell>=1.1.0
 
-# 비동기 처리
-celery>=5.3.0
-redis>=5.0.0
+# 리포트 생성
+python-docx>=0.8.11
+reportlab>=4.0.0
+jinja2>=3.1.0
 
 # 유틸리티
 pydantic>=2.0.0
-python-dotenv>=1.0.0
-aiofiles>=23.2.0
+pyyaml>=6.0
 ```
 
 #### 5.2 개발 도구
+
 ```
 # 테스트
 pytest>=7.4.0
-pytest-asyncio>=0.21.0
+pytest-qt>=4.2.0
 pytest-cov>=4.1.0
-httpx>=0.25.0  # FastAPI 테스트용
 
 # 코드 품질
 black>=23.0.0
 flake8>=6.0.0
 mypy>=1.5.0
 
-# 배포
-gunicorn>=21.2.0
-docker>=6.1.0
+# 패키징
+PyInstaller>=5.13.0
 ```
 
 ### 6. 품질 요구사항
 
 #### 6.1 성능 요구사항
-- **처리 속도**: 300dpi 기준 1페이지 ≤ 10초 (웹 환경)
-- **동시 처리**: 최대 10개 요청 동시 처리 가능
-- **파일 크기 제한**: 최대 50MB PDF 파일
+
+- **처리 속도**: 300dpi 기준 1페이지 ≤ 5초 (GPU 환경)
+- **메모리 사용량**: 최대 2GB (500페이지 문서 기준)
 - **OCR 정확도**: 교정 후 CER < 3%
-- **응답 시간**: API 응답 시간 < 2초
 
 #### 6.2 사용성 요구사항
-- **직관성**: 별도 설치 없이 브라우저에서 즉시 사용 가능
-- **반응성**: 실시간 진행률 표시 및 상태 업데이트
-- **오류 처리**: 명확한 오류 메시지 및 복구 가이드
-- **접근성**: 모바일 브라우저 지원
+
+- **학습 시간**: 비전문 사용자 5분 내 숙달
+- **오류 허용**: 잘못된 입력에 대한 명확한 오류 메시지
+- **접근성**: 키보드 단축키 및 스크린 리더 지원
 
 #### 6.3 호환성 요구사항
-- **브라우저**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
+
+- **OS**: Windows 10+, macOS 11+, Ubuntu 20.04+
 - **Python**: 3.9+
-- **파일 형식**: PDF (업로드), TXT (다운로드)
-- **서버 환경**: Linux Ubuntu 20.04+, Docker 지원
+- **파일 형식**: PDF, PNG, JPG, TIFF
 
 ### 7. 테스트 전략
 
 #### 7.1 단위 테스트 범위
+
 - 각 클래스의 모든 public 메서드
 - 에러 케이스 및 경계값 테스트
 - 코드 커버리지 > 85%
 
 #### 7.2 통합 테스트 범위
-- 전체 OCR 파이프라인 API 테스트
-- 비동기 작업 처리 테스트
-- 파일 업로드/다운로드 테스트
-- 데이터베이스 연동 테스트
+
+- OCR 파이프라인 전체 플로우
+- GUI 컴포넌트 간 상호작용
+- 파일 I/O 및 설정 관리
 
 #### 7.3 E2E 테스트 범위
-- 웹 브라우저 자동화 테스트 (Selenium)
-- 실제 PDF 문서 업로드부터 텍스트 다운로드까지
-- 다양한 브라우저 호환성 테스트
-- 동시 사용자 부하 테스트
+
+- 실제 문서 처리 시나리오
+- 다양한 문서 품질에 대한 테스트
+- 사용자 워크플로우 테스트
 
 ### 8. 배포 전략
 
-#### 8.1 컨테이너화
-- Docker를 이용한 애플리케이션 컨테이너화
-- Docker Compose를 통한 멀티 컨테이너 구성 (웹서버, Redis, Celery worker)
-- 필요한 OCR 모델 파일을 포함한 이미지 빌드
+#### 8.1 패키징
 
-#### 8.2 클라우드 배포
-- AWS/GCP/Azure 클라우드 플랫폼 지원
-- 로드 밸런서 및 오토 스케일링 설정
-- CDN을 통한 정적 파일 배포
+- PyInstaller를 사용한 standalone 실행파일
+- 플랫폼별 인스톨러 제공
+- 필요한 모델 파일 포함
+
+#### 8.2 버전 관리
+
+- Semantic Versioning 적용
+- 자동 업데이트 확인 기능
+- 설정 마이그레이션 지원
 
 ### 9. 확장성 고려사항
 
-#### 9.1 마이크로서비스 아키텍처
-- OCR 엔진별 독립 서비스
-- 파일 처리 전용 서비스
-- 텍스트 교정 전용 서비스
+#### 9.1 플러그인 아키텍처
 
-#### 9.2 확장 기능
-- 사용자 인증 및 세션 관리
-- 처리 이력 및 통계 대시보드
-- 배치 처리 API (다중 파일 처리)
+- OCR 엔진 플러그인 인터페이스
+- 교정 규칙 플러그인 인터페이스
+- 내보내기 포맷 플러그인 인터페이스
+
+#### 9.2 클라우드 확장
+
+- API 서버 모드 지원 준비
+- 배치 처리 기능
+- 사용자 계정 및 프로젝트 관리
 
 ### 10. 보안 고려사항
 
 #### 10.1 데이터 보안
-- 업로드된 파일 임시 저장 및 자동 삭제 (TTL: 24시간)
-- HTTPS 통신 강제
-- 파일 접근 권한 제한 (업로더만 다운로드 가능)
-- 민감 정보 로깅 방지
+
+- 로컬 처리 우선 (개인정보 보호)
+- 임시 파일 자동 삭제
+- 클라우드 API 키 암호화 저장
 
 #### 10.2 입력 검증
-- 파일 형식 검증 (PDF만 허용)
-- 파일 크기 제한 (최대 50MB)
-- 업로드 속도 제한 (Rate Limiting)
-- CSRF 토큰 검증
+
+- 파일 형식 및 크기 검증
+- 악성 파일 검사
+- 메모리 사용량 제한
