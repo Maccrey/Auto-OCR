@@ -1,0 +1,111 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline"]
+    types:
+      - completed
+    branches: [main, develop]
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure staging deployment
+      run: |
+        echo "Configuring staging environment..."
+        # 스테이징 환경 설정
+        
+    - name: Deploy to staging
+      run: |
+        echo "🚀 Deploying to staging environment..."
+        # 실제 배포 명령어들
+        # 예시:
+        # docker-compose -f docker-compose.staging.yml pull
+        # docker-compose -f docker-compose.staging.yml up -d
+        
+    - name: Run smoke tests
+      run: |
+        echo "🧪 Running smoke tests on staging..."
+        # 스테이징 환경 기본 동작 확인
+        # curl 또는 다른 헬스체크 도구 사용
+        
+    - name: Notify deployment status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Staging deployment successful!"
+        else
+          echo "❌ Staging deployment failed!"
+        fi
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Verify prerequisites
+      run: |
+        echo "Verifying production prerequisites..."
+        # 프로덕션 배포 전 체크리스트
+        # - 데이터베이스 마이그레이션 준비
+        # - 백업 확인
+        # - 모니터링 설정 확인
+        
+    - name: Deploy to production
+      run: |
+        echo "🚀 Deploying to production environment..."
+        # 프로덕션 배포 스크립트
+        # Blue-Green 또는 Rolling 배포 전략 사용
+        
+    - name: Run production health checks
+      run: |
+        echo "🏥 Running production health checks..."
+        # 프로덕션 서비스 상태 확인
+        # API 엔드포인트 테스트
+        # 의존 서비스 상태 확인
+        
+    - name: Update monitoring and alerts
+      run: |
+        echo "📊 Updating monitoring configuration..."
+        # 모니터링 대시보드 업데이트
+        # 알림 규칙 설정
+        
+    - name: Notify deployment status
+      if: always()
+      run: |
+        if [ "${{ job.status }}" == "success" ]; then
+          echo "✅ Production deployment successful!"
+          # Slack, Discord, 이메일 등으로 성공 알림
+        else
+          echo "❌ Production deployment failed!"
+          # 실패 시 즉시 알림 및 롤백 준비
+        fi
+
+  rollback:
+    runs-on: ubuntu-latest
+    if: failure()
+    environment: production
+    
+    steps:
+    - name: Rollback production deployment
+      run: |
+        echo "⏪ Rolling back production deployment..."
+        # 이전 버전으로 롤백
+        # 데이터베이스 롤백 (필요시)
+        # 서비스 상태 확인
+        
+    - name: Verify rollback
+      run: |
+        echo "✅ Verifying rollback completion..."
+        # 롤백 후 서비스 상태 확인

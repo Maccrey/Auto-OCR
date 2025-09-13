@@ -1,0 +1,59 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.9"
+
+    - name: Cache Python dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-quality-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-quality-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install black flake8 mypy isort bandit
+
+    - name: Check code formatting with Black
+      run: |
+        black --check --diff backend/ tests/
+
+    - name: Check import sorting with isort
+      run: |
+        isort --check-only --diff backend/ tests/
+
+    - name: Lint with flake8
+      run: |
+        flake8 backend/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 backend/ tests/ --count --max-complexity=10 --max-line-length=88 --statistics
+
+    - name: Type checking with mypy
+      run: |
+        mypy backend/ --ignore-missing-imports
+
+    - name: Security analysis with bandit
+      run: |
+        bandit -r backend/ -ll
+
+    - name: Check for vulnerabilities in dependencies
+      run: |
+        pip install safety
+        safety check
