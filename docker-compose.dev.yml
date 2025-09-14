@@ -1,0 +1,189 @@
+# K-OCR Web Corrector - Development Docker Compose Configuration
+version: '3.8'
+
+services:
+  # Redis - 메시지 브로커 (개발용 간소화)
+  redis:
+    image: redis:7-alpine
+    container_name: k-ocr-redis-dev
+    command: redis-server --appendonly no --save ""
+    ports:
+      - "6379:6379"
+    networks:
+      - k-ocr-dev-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.2'
+
+  # FastAPI 웹 애플리케이션 (개발용)
+  web:
+    build:
+      context: .
+      target: development
+    container_name: k-ocr-web-dev
+    ports:
+      - "8000:8000"
+    volumes:
+      # 코드 변경 시 자동 리로드를 위한 바인드 마운트
+      - .:/app
+      - /app/venv  # 가상환경 제외
+      - temp_storage_dev:/app/temp_storage
+    environment:
+      - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - LOG_LEVEL=DEBUG
+      - RELOAD=true
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - k-ocr-dev-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/download/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+
+  # Celery Worker (개발용 단일 워커)
+  worker:
+    build:
+      context: .
+      target: development
+    container_name: k-ocr-worker-dev
+    command: >
+      sh -c "
+      echo 'Waiting for web service to be ready...' &&
+      sleep 10 &&
+      celery -A backend.core.tasks worker --loglevel=debug --concurrency=1 --pool=solo
+      "
+    volumes:
+      - .:/app
+      - /app/venv
+      - temp_storage_dev:/app/temp_storage
+    environment:
+      - ENVIRONMENT=development
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - LOG_LEVEL=DEBUG
+    depends_on:
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+    networks:
+      - k-ocr-dev-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+
+  # Celery Flower - 개발 모니터링
+  flower:
+    build:
+      context: .
+      target: development
+    container_name: k-ocr-flower-dev
+    command: >
+      celery -A backend.core.tasks flower
+      --port=5555
+      --broker=redis://redis:6379/0
+      --basic_auth=admin:dev123
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - worker
+    networks:
+      - k-ocr-dev-network
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.1'
+
+  # PostgreSQL (개발용, 선택사항)
+  postgres:
+    image: postgres:15-alpine
+    container_name: k-ocr-postgres-dev
+    environment:
+      POSTGRES_DB: k_ocr_dev
+      POSTGRES_USER: dev_user
+      POSTGRES_PASSWORD: dev_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - k-ocr-dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles: ["database"]  # 선택적 실행
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+  # Adminer - 데이터베이스 관리 (개발용)
+  adminer:
+    image: adminer:latest
+    container_name: k-ocr-adminer-dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    networks:
+      - k-ocr-dev-network
+    profiles: ["database", "tools"]
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.1'
+
+  # MailHog - 이메일 테스팅 (개발용)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: k-ocr-mailhog-dev
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+    networks:
+      - k-ocr-dev-network
+    profiles: ["tools"]
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+          cpus: '0.1'
+
+volumes:
+  temp_storage_dev:
+    driver: local
+  postgres_dev_data:
+    driver: local
+
+networks:
+  k-ocr-dev-network:
+    driver: bridge
+    name: k-ocr-dev-network
