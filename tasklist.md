@@ -411,12 +411,50 @@
 - [x] 스트레스 및 부하 테스트: 6개 테스트 모두 통과
 - [x] 총 23개 통합 테스트 100% 통과 달성
 
-#### 5.2 사용성 테스트
-- [ ] 웹 UI 반응성 테스트 (Lighthouse)
-- [ ] 크로스 브라우저 호환성 테스트
-- [ ] 모바일 반응형 테스트
-- [ ] 접근성 테스트 (WAVE, axe-core)
-- [ ] 사용자 시나리오 테스트
+#### 5.2 사용성 테스트 ✅ **완료됨**
+
+**테스트 작성**
+- [x] test_web_ui_responsiveness.py 생성 및 구현
+- [x] test_cross_browser_compatibility.py 생성 및 구현
+- [x] test_accessibility.py 생성 및 구현
+- [x] test_user_scenarios.py 생성 및 구현
+- [x] 사용성 테스트 의존성 패키지 설치 (selenium, webdriver-manager, axe-selenium-python)
+
+**구현**
+- [x] 웹 UI 반응성 테스트 (Lighthouse 통합)
+  - [x] 페이지 로드 성능 테스트 (2초 이하 기준)
+  - [x] 반응형 디자인 브레이크포인트 테스트 (7개 디바이스 크기)
+  - [x] Core Web Vitals 측정 (LCP, FID, CLS)
+  - [x] UI 인터랙션 반응성 테스트
+  - [x] Lighthouse 성능 감사 자동화
+  - [x] 네트워크 조건 시뮬레이션 테스트
+- [x] 크로스 브라우저 호환성 테스트
+  - [x] Chrome, Firefox, Edge 브라우저 지원
+  - [x] 기본 페이지 로딩 호환성 테스트
+  - [x] JavaScript 기능 호환성 테스트
+  - [x] CSS 렌더링 호환성 테스트
+  - [x] 파일 업로드 기능 브라우저별 테스트
+  - [x] 반응형 디자인 브라우저별 테스트
+- [x] 접근성 테스트 (WCAG 준수)
+  - [x] 키보드 네비게이션 테스트 (Tab, Enter, Space 키)
+  - [x] Skip 링크 테스트
+  - [x] ARIA 라벨 및 설명 검증
+  - [x] ARIA 역할 검증
+  - [x] 색상 대비비 테스트 (4.5:1 기준)
+  - [x] axe-core 자동화된 접근성 감사
+  - [x] 종합 접근성 감사 (모든 검증 통합)
+- [x] 사용자 시나리오 테스트
+  - [x] PDF 업로드 워크플로우 테스트 (5단계 시나리오)
+  - [x] 설정 구성 워크플로우 테스트 (4단계 시나리오)
+  - [x] 결과 다운로드 워크플로우 테스트 (4단계 시나리오)
+  - [x] End-to-End 사용자 여정 테스트 (전체 플로우)
+
+**사용성 테스트 통계**
+- [x] 총 22개 사용성 테스트 케이스 구현 완료
+- [x] 테스트 서버 없이도 graceful skip 처리 구현
+- [x] Selenium WebDriver 기반 실제 브라우저 자동화
+- [x] 성능, 호환성, 접근성, 사용성 전 영역 커버
+- [x] requirements.txt에 필요 의존성 추가 (selenium>=4.15.0, webdriver-manager>=4.0.0, axe-selenium-python>=2.1.6)
 
 ### Phase 6: 패키징 및 배포
 

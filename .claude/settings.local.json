@@ -34,7 +34,8 @@
       "Bash(python -m pytest tests/test_frontend/test_main_page.py -v)",
       "Bash(python -m pytest tests/test_frontend/test_main_page.py::TestAccessibility::test_alt_attributes_for_icons -v)",
       "Bash(python:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(pytest:*)"
     ],
     "deny": [],
     "ask": []
