@@ -1,0 +1,151 @@
+{
+  "family": "k-ocr-web-corrector",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "4096",
+  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/k-ocr-task-role",
+  "containerDefinitions": [
+    {
+      "name": "k-ocr-web",
+      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/k-ocr-web-corrector:latest",
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "DATABASE_URL",
+          "value": "postgresql://k_ocr_user:password@k-ocr-postgres.REGION.rds.amazonaws.com:5432/k_ocr_db"
+        },
+        {
+          "name": "REDIS_URL",
+          "value": "redis://k-ocr-redis.cache.amazonaws.com:6379/0"
+        },
+        {
+          "name": "AWS_DEFAULT_REGION",
+          "value": "us-west-2"
+        },
+        {
+          "name": "ENVIRONMENT",
+          "value": "production"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "SECRET_KEY",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:k-ocr/secret-key"
+        },
+        {
+          "name": "POSTGRES_PASSWORD",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:k-ocr/postgres-password"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "temp-storage",
+          "containerPath": "/app/temp_storage"
+        },
+        {
+          "sourceVolume": "ocr-models",
+          "containerPath": "/app/models"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/k-ocr-web-corrector",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:8000/api/download/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    },
+    {
+      "name": "k-ocr-worker",
+      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/k-ocr-web-corrector:latest",
+      "command": [
+        "celery",
+        "-A",
+        "backend.core.tasks",
+        "worker",
+        "--loglevel=info",
+        "--concurrency=2"
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "DATABASE_URL",
+          "value": "postgresql://k_ocr_user:password@k-ocr-postgres.REGION.rds.amazonaws.com:5432/k_ocr_db"
+        },
+        {
+          "name": "REDIS_URL",
+          "value": "redis://k-ocr-redis.cache.amazonaws.com:6379/0"
+        },
+        {
+          "name": "AWS_DEFAULT_REGION",
+          "value": "us-west-2"
+        },
+        {
+          "name": "ENVIRONMENT",
+          "value": "production"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "SECRET_KEY",
+          "valueFrom": "arn:aws:secretsmanager:REGION:ACCOUNT_ID:secret:k-ocr/secret-key"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "temp-storage",
+          "containerPath": "/app/temp_storage"
+        },
+        {
+          "sourceVolume": "ocr-models",
+          "containerPath": "/app/models"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/k-ocr-worker",
+          "awslogs-region": "us-west-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "temp-storage",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-XXXXXXXX",
+        "rootDirectory": "/temp_storage",
+        "transitEncryption": "ENABLED"
+      }
+    },
+    {
+      "name": "ocr-models",
+      "efsVolumeConfiguration": {
+        "fileSystemId": "fs-XXXXXXXX",
+        "rootDirectory": "/models",
+        "transitEncryption": "ENABLED"
+      }
+    }
+  ]
+}

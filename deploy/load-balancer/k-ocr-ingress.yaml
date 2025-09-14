@@ -1,0 +1,283 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: k-ocr-ingress
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-ingress
+    app.kubernetes.io/part-of: k-ocr
+  annotations:
+    # Use nginx ingress controller
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+
+    # SSL/TLS configuration
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit-rps: "100"
+    nginx.ingress.kubernetes.io/rate-limit-connections: "50"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-next-upstream-timeout: "60"
+
+    # Buffer sizes and upload limits
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/client-body-buffer-size: "1m"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "4k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+
+    # Session affinity
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/affinity-mode: "persistent"
+    nginx.ingress.kubernetes.io/session-cookie-name: "k-ocr-session"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "3600"
+    nginx.ingress.kubernetes.io/session-cookie-path: "/"
+
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains";
+
+    # CORS configuration
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://k-ocr.yourdomain.com,https://www.k-ocr.yourdomain.com"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization"
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
+
+    # Compression
+    nginx.ingress.kubernetes.io/use-gzip: "true"
+    nginx.ingress.kubernetes.io/gzip-level: "5"
+    nginx.ingress.kubernetes.io/gzip-types: "text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json"
+
+spec:
+  tls:
+  - hosts:
+    - k-ocr.yourdomain.com
+    - www.k-ocr.yourdomain.com
+    secretName: k-ocr-tls-secret
+
+  rules:
+  # Main domain
+  - host: k-ocr.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: k-ocr-web-service
+            port:
+              number: 8000
+      # API endpoints
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: k-ocr-web-service
+            port:
+              number: 8000
+      # Static files
+      - path: /static
+        pathType: Prefix
+        backend:
+          service:
+            name: k-ocr-web-service
+            port:
+              number: 8000
+      # Health check endpoint
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: k-ocr-web-service
+            port:
+              number: 8000
+
+  # WWW domain redirect
+  - host: www.k-ocr.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: k-ocr-web-service
+            port:
+              number: 8000
+
+---
+# Ingress for monitoring and admin endpoints (restricted access)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: k-ocr-admin-ingress
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-admin-ingress
+    app.kubernetes.io/part-of: k-ocr
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+    # IP whitelist for admin access (replace with your admin IPs)
+    nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,192.168.0.0/16,172.16.0.0/12"
+
+    # Basic auth for additional security
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: k-ocr-basic-auth
+    nginx.ingress.kubernetes.io/auth-realm: 'K-OCR Admin Area'
+
+spec:
+  tls:
+  - hosts:
+    - admin.k-ocr.yourdomain.com
+    secretName: k-ocr-admin-tls-secret
+
+  rules:
+  - host: admin.k-ocr.yourdomain.com
+    http:
+      paths:
+      # Prometheus metrics
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: k-ocr-web-service
+            port:
+              number: 8000
+      # Admin endpoints
+      - path: /admin
+        pathType: Prefix
+        backend:
+          service:
+            name: k-ocr-web-service
+            port:
+              number: 8000
+
+---
+# HTTP to HTTPS redirect ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: k-ocr-redirect-ingress
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-redirect-ingress
+    app.kubernetes.io/part-of: k-ocr
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/permanent-redirect: "https://k-ocr.yourdomain.com$request_uri"
+
+spec:
+  rules:
+  - host: k-ocr.yourdomain.com
+    http:
+      paths:
+      - path: /(.*)
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: k-ocr-web-service
+            port:
+              number: 8000
+
+---
+# Basic auth secret for admin access
+apiVersion: v1
+kind: Secret
+metadata:
+  name: k-ocr-basic-auth
+  namespace: k-ocr
+type: Opaque
+data:
+  # admin:admin123 (change this!)
+  # Generated using: htpasswd -nb admin admin123 | base64 -w 0
+  auth: YWRtaW46JGFwcjEkSTBGd2lUOWIkblFmYXVMSzRMWTFHekI0VE9aLnRoMAo=
+
+---
+# Network policy to allow ingress traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: k-ocr-ingress-network-policy
+  namespace: k-ocr
+spec:
+  podSelector:
+    matchLabels:
+      app: k-ocr-web
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow traffic from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow traffic from load balancer health checks
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 8000
+  # Allow internal cluster communication
+  - from:
+    - podSelector:
+        matchLabels:
+          app: k-ocr-worker
+    ports:
+    - protocol: TCP
+      port: 8000
+
+---
+# Service monitor for Prometheus integration
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: k-ocr-ingress-metrics
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-ingress-metrics
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+      app.kubernetes.io/part-of: ingress-nginx
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+  namespaceSelector:
+    matchNames:
+    - ingress-nginx
+
+---
+# Ingress class for nginx (for newer Kubernetes versions)
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "true"
+spec:
+  controller: k8s.io/ingress-nginx

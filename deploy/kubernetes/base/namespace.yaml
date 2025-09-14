@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-web-corrector
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: namespace
+  annotations:
+    description: "K-OCR Web Corrector - Korean OCR and Text Correction Service"

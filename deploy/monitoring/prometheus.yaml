@@ -1,0 +1,493 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: monitoring
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics"]
+  verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: monitoring
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'k-ocr-cluster'
+        environment: 'production'
+
+    rule_files:
+      - "/etc/prometheus/rules/*.yml"
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+              - alertmanager:9093
+
+    scrape_configs:
+      # Prometheus itself
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      # Kubernetes API server
+      - job_name: 'kubernetes-apiservers'
+        kubernetes_sd_configs:
+        - role: endpoints
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+          action: keep
+          regex: default;kubernetes;https
+
+      # Kubernetes nodes
+      - job_name: 'kubernetes-nodes'
+        kubernetes_sd_configs:
+        - role: node
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        relabel_configs:
+        - action: labelmap
+          regex: __meta_kubernetes_node_label_(.+)
+        - target_label: __address__
+          replacement: kubernetes.default.svc:443
+        - source_labels: [__meta_kubernetes_node_name]
+          regex: (.+)
+          target_label: __metrics_path__
+          replacement: /api/v1/nodes/${1}/proxy/metrics
+
+      # Kubernetes pods
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+        - role: pod
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        - source_labels: [__meta_kubernetes_namespace]
+          action: replace
+          target_label: kubernetes_namespace
+        - source_labels: [__meta_kubernetes_pod_name]
+          action: replace
+          target_label: kubernetes_pod_name
+
+      # K-OCR specific applications
+      - job_name: 'k-ocr-web'
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - k-ocr
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: k-ocr-web
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+          action: replace
+          target_label: __metrics_path__
+          regex: (.+)
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          target_label: __address__
+
+      - job_name: 'k-ocr-worker'
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - k-ocr
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: k-ocr-worker
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+
+      # Redis monitoring
+      - job_name: 'redis'
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - k-ocr
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: k-ocr-redis
+
+      # PostgreSQL monitoring
+      - job_name: 'postgres'
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - k-ocr
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: k-ocr-postgres
+
+      # Ingress controller
+      - job_name: 'nginx-ingress-controller'
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - ingress-nginx
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_name]
+          action: keep
+          regex: ingress-nginx
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          target_label: __address__
+          regex: (.+)
+          replacement: $1:10254
+
+      # Cluster autoscaler
+      - job_name: 'cluster-autoscaler'
+        kubernetes_sd_configs:
+        - role: pod
+          namespaces:
+            names:
+            - kube-system
+        relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_app]
+          action: keep
+          regex: cluster-autoscaler
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+data:
+  k-ocr-rules.yml: |
+    groups:
+    - name: k-ocr.rules
+      rules:
+      # Application metrics
+      - record: k_ocr:request_rate
+        expr: sum(rate(http_requests_total{job="k-ocr-web"}[5m]))
+
+      - record: k_ocr:request_latency_p95
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="k-ocr-web"}[5m])) by (le))
+
+      - record: k_ocr:error_rate
+        expr: sum(rate(http_requests_total{job="k-ocr-web",status=~"5.."}[5m])) / sum(rate(http_requests_total{job="k-ocr-web"}[5m]))
+
+      - record: k_ocr:active_workers
+        expr: sum(up{job="k-ocr-worker"})
+
+      - record: k_ocr:queue_size
+        expr: redis_list_length{list="celery"}
+
+      - record: k_ocr:processing_time_p95
+        expr: histogram_quantile(0.95, sum(rate(ocr_processing_duration_seconds_bucket[5m])) by (le))
+
+      # Resource utilization
+      - record: k_ocr:cpu_usage_percent
+        expr: |
+          (
+            sum(rate(container_cpu_usage_seconds_total{namespace="k-ocr"}[5m])) by (pod)
+            /
+            sum(container_spec_cpu_quota{namespace="k-ocr"} / container_spec_cpu_period{namespace="k-ocr"}) by (pod)
+          ) * 100
+
+      - record: k_ocr:memory_usage_percent
+        expr: |
+          (
+            sum(container_memory_working_set_bytes{namespace="k-ocr"}) by (pod)
+            /
+            sum(container_spec_memory_limit_bytes{namespace="k-ocr"}) by (pod)
+          ) * 100
+
+      # Database metrics
+      - record: k_ocr:db_connections
+        expr: pg_stat_database_numbackends{datname="k_ocr_db"}
+
+      - record: k_ocr:db_query_duration_p95
+        expr: histogram_quantile(0.95, sum(rate(pg_stat_statements_mean_time_bucket[5m])) by (le))
+
+    - name: k-ocr.alerts
+      rules:
+      - alert: K-OCRWebDown
+        expr: up{job="k-ocr-web"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "K-OCR web service is down"
+          description: "K-OCR web service has been down for more than 1 minute"
+
+      - alert: K-OCRHighErrorRate
+        expr: k_ocr:error_rate > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate in K-OCR"
+          description: "Error rate is {{ $value | humanizePercentage }}"
+
+      - alert: K-OCRHighLatency
+        expr: k_ocr:request_latency_p95 > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency in K-OCR"
+          description: "95th percentile latency is {{ $value }}s"
+
+      - alert: K-OCRQueueTooLarge
+        expr: k_ocr:queue_size > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "K-OCR queue is growing"
+          description: "Queue size is {{ $value }}"
+
+      - alert: K-OCRHighCPUUsage
+        expr: k_ocr:cpu_usage_percent > 80
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage in K-OCR pods"
+          description: "CPU usage is {{ $value }}%"
+
+      - alert: K-OCRHighMemoryUsage
+        expr: k_ocr:memory_usage_percent > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High memory usage in K-OCR pods"
+          description: "Memory usage is {{ $value }}%"
+
+      - alert: K-OCRDatabaseConnectionsHigh
+        expr: k_ocr:db_connections > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connections"
+          description: "Database has {{ $value }} connections"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.47.0
+        args:
+          - '--config.file=/etc/prometheus/prometheus.yml'
+          - '--storage.tsdb.path=/prometheus/'
+          - '--web.console.libraries=/etc/prometheus/console_libraries'
+          - '--web.console.templates=/etc/prometheus/consoles'
+          - '--storage.tsdb.retention.time=30d'
+          - '--web.enable-lifecycle'
+          - '--storage.tsdb.no-lockfile'
+          - '--storage.tsdb.wal-compression'
+          - '--web.enable-admin-api'
+        ports:
+        - containerPort: 9090
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 1000m
+            memory: 4Gi
+        volumeMounts:
+        - name: prometheus-config-volume
+          mountPath: /etc/prometheus/
+        - name: prometheus-rules-volume
+          mountPath: /etc/prometheus/rules/
+        - name: prometheus-storage-volume
+          mountPath: /prometheus/
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 5
+      volumes:
+      - name: prometheus-config-volume
+        configMap:
+          name: prometheus-config
+      - name: prometheus-rules-volume
+        configMap:
+          name: prometheus-rules
+      - name: prometheus-storage-volume
+        persistentVolumeClaim:
+          claimName: prometheus-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+  namespace: monitoring
+  labels:
+    app: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - name: prometheus
+    port: 9090
+    targetPort: 9090
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: fast-ssd
+
+---
+# Ingress for Prometheus UI
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prometheus-ingress
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: monitoring-auth
+    nginx.ingress.kubernetes.io/auth-realm: 'Prometheus'
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - prometheus.k-ocr.yourdomain.com
+    secretName: prometheus-tls
+  rules:
+  - host: prometheus.k-ocr.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: prometheus-service
+            port:
+              number: 9090
+
+---
+# ServiceMonitor for Prometheus to monitor itself
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: prometheus
+  endpoints:
+  - port: prometheus

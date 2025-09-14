@@ -1,0 +1,398 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/instance: ingress-nginx
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nginx-ingress-serviceaccount
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nginx-ingress-clusterrole
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - endpoints
+      - nodes
+      - pods
+      - secrets
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - ingressclasses
+    verbs:
+      - get
+      - list
+      - watch
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nginx-ingress-role
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - pods
+      - secrets
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - "ingress-controller-leader"
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    verbs:
+      - get
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nginx-ingress-role-nisa-binding
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nginx-ingress-role
+subjects:
+  - kind: ServiceAccount
+    name: nginx-ingress-serviceaccount
+    namespace: ingress-nginx
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: nginx-ingress-clusterrole-nisa-binding
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nginx-ingress-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: nginx-ingress-serviceaccount
+    namespace: ingress-nginx
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-configuration
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+data:
+  # Performance tuning
+  worker-processes: "auto"
+  worker-connections: "65536"
+  max-worker-open-files: "65536"
+
+  # Timeouts
+  proxy-connect-timeout: "60s"
+  proxy-send-timeout: "300s"
+  proxy-read-timeout: "300s"
+  proxy-next-upstream-timeout: "60s"
+
+  # Buffer sizes
+  proxy-buffer-size: "4k"
+  proxy-buffers: "4 4k"
+  client-body-buffer-size: "1m"
+  client-header-buffer-size: "1k"
+  large-client-header-buffers: "4 8k"
+
+  # Upload limits
+  proxy-body-size: "50m"
+  client-max-body-size: "50m"
+
+  # SSL Configuration
+  ssl-protocols: "TLSv1.2 TLSv1.3"
+  ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+  ssl-prefer-server-ciphers: "on"
+  ssl-session-cache: "shared:SSL:10m"
+  ssl-session-timeout: "10m"
+
+  # Security headers
+  add-headers: "ingress-nginx/custom-headers"
+
+  # Rate limiting
+  rate-limit-rps: "100"
+  rate-limit-connections: "50"
+
+  # Logging
+  log-format-escape-json: "true"
+  log-format-upstream: '{"time": "$time_iso8601", "remote_addr": "$proxy_protocol_addr", "x_forwarded_for": "$proxy_add_x_forwarded_for", "request_id": "$req_id", "remote_user": "$remote_user", "bytes_sent": $bytes_sent, "request_time": $request_time, "status": $status, "vhost": "$host", "request_proto": "$server_protocol", "path": "$uri", "request_query": "$args", "request_length": $request_length, "duration": $request_time,"method": "$request_method", "http_referrer": "$http_referer", "http_user_agent": "$http_user_agent", "upstream_addr": "$upstream_addr", "upstream_response_time": $upstream_response_time, "upstream_response_length": $upstream_response_length, "upstream_status": $upstream_status}'
+
+  # Compression
+  enable-brotli: "true"
+  brotli-level: "6"
+  use-gzip: "true"
+  gzip-level: "5"
+  gzip-types: "text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-headers
+  namespace: ingress-nginx
+data:
+  X-Content-Type-Options: "nosniff"
+  X-Frame-Options: "DENY"
+  X-XSS-Protection: "1; mode=block"
+  Referrer-Policy: "strict-origin-when-cross-origin"
+  Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';"
+  Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx-ingress-controller
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+      app.kubernetes.io/part-of: ingress-nginx
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ingress-nginx
+        app.kubernetes.io/part-of: ingress-nginx
+      annotations:
+        prometheus.io/port: "10254"
+        prometheus.io/scrape: "true"
+    spec:
+      terminationGracePeriodSeconds: 300
+      serviceAccountName: nginx-ingress-serviceaccount
+      nodeSelector:
+        kubernetes.io/os: linux
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: nginx-ingress-controller
+          image: k8s.gcr.io/ingress-nginx/controller:v1.8.1
+          args:
+            - /nginx-ingress-controller
+            - --configmap=$(POD_NAMESPACE)/nginx-configuration
+            - --tcp-services-configmap=$(POD_NAMESPACE)/tcp-services
+            - --udp-services-configmap=$(POD_NAMESPACE)/udp-services
+            - --publish-service=$(POD_NAMESPACE)/ingress-nginx
+            - --annotations-prefix=nginx.ingress.kubernetes.io
+            - --enable-ssl-passthrough
+            - --enable-ssl-chain-completion=false
+            - --default-ssl-certificate=$(POD_NAMESPACE)/default-server-secret
+            - --metrics-bind-address=0.0.0.0:10254
+            - --profiling=false
+            - --report-node-internal-ip-address
+            - --http-port=80
+            - --https-port=443
+            - --healthz-port=10254
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+            runAsUser: 101
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+              hostPort: 80
+            - name: https
+              containerPort: 443
+              protocol: TCP
+              hostPort: 443
+            - name: metrics
+              containerPort: 10254
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 1
+            timeoutSeconds: 1
+            successThreshold: 1
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /wait-shutdown
+          resources:
+            requests:
+              cpu: 100m
+              memory: 90Mi
+            limits:
+              cpu: 1000m
+              memory: 500Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  controller: k8s.io/ingress-nginx
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: default-server-secret
+  namespace: ingress-nginx
+type: Opaque
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURMVENDQWhXZ0F3SUJBZ0lKQUpSdUFQZWVieWJFTUEwR0NTcUdTSWIzRFFFQkN3VUFNQzB4S3pBcEJnTlYKQkFNTUlpb3VaV3hoYm10cExtZHJaUzVqYjIxYUxtZHNiMkpoYkM1M1pXSXVhVzVtYjBkRlVsUkIKUjI4eUVGZVZOVzEzeFlPaThNZFVRTFhXc0dQMmlnRWI1aXM1ZjJMNFIzZGJIWXJqMThsL2FVa3JqdXRvei9yb1MKd0dkODFRQU5nNTlwbEtKRFY5TEhmdGhUYVJpR3NOL0laVGlvVXVGejV6aUprcjE3YkpVV200M2E4V2gwSzJyZgo3WVlkN1pYMWFEZGVOUHp4K0V2SHY1V1R5ZEFEdFYvUDlpeDNNZVVPaDd5TVNYSTBxM1UxTVdYMWlmTWJEVGgwCnFqWnFRRkhYbTE3QU5HZlpGVnJVU1NvWks0MFNYNTloODlkS2VnVEtucnJOa21sbXV4bUVLam5NVUZWN1BnMW8KWnFNUUYyaGlxVStUQ2JCL0w3Y3ZXTmZlT3dZQng3alFXaHNCZ3FvNkpkeFBNSGR1U0dVa2t5QUg3c0NDNGExTApxWXcvZGVTTEE0OUVhZUlHRUFnUXZkV0FUeTZPOXFPamRzdmIwR0YvZllQeVhkWEhqSlF3cmthTkxMSTU1MWJDCmNEOXhmdVJRNm5IZk55amZSYk8xaVZ2YUxSdHhOanB5UWo0bWtoSDIxNzJ0VjQ2UGVsejlUUXlKcVdMRjM3NXMKUjdOS1J1Qk9NUjBsUlNYQjM4ZlBhWDdXeG9qYm5hWTVxR0VLYXJUblRNNE5yUTZpWVhvZGJMa1VlRnVXUgpMdmJCK1BSWHZSVFpxRlFpZGw1cUEzc3JIcm8yOGtCWFpSZlRITGRjZE1USGlHRm15V1c4ZFV6UW1VV0xPaUhzCnZxQWxaTjhTOE5IK2hQMC9rdHZiWXdZSGhEVVNqUURNVkdBNDRNUlQ1V2FsVGRZNHNKWE04TjRoZE84ZWd0bGcKNWZidXI4N29HdkN5VlJlemlxRFBBc0JBUG5GNUs4eXJhOUFXVjgxRTBXYjZ6VXV6bTJ4L2JwTWI5ZmQrd28vOAp3aEkzdmY3em5wSGhKZUJWZDFqZnhNZDdTaUhKR2lyRWVlODY4SHJZM1BGUkpmaVpIKzY5V3BwZVJVZytiVjM2CmZQNzJZenJJRk1nMnJWVm5OOTdPSzNkVmRQbkd3VkgxVjVUWmIzYkZiVG9XZldqSGVnTGFLanVWZnM4aGdaOEYKRm1aTkNWUG5RbGhlVnFSYkxHZVJkWmFSeGdhOUVaMGYyblVXdHdJREFRQUJvMEl3UURBUEJnTlZIUk1CQWY4RQpCVEFEQVFIL01CMEdBMVVkRGdRV0JCU0NxOGdYUEVheUJQcGd2TFVRRXhqU3BXODdvekFkQmdOVkhRNEVGZ1FVCmdxdklGenhHc2dUNllMeTFFQk1ZMHFWdk82TXdEUVlKS29aSWh2Y05BUUVMQlFBRGdnRUJBSE5pWHd4WWZnU2MKbGphVlFOdkJCUld5VVBEUjJJQzBIZzVhM1loRzEzYm81cWR2R0xrVVl3RENFVW8vNTMrRDZuUXRZVmZScERHZwpUVGhqWDl3NDdIV2xZUzVyWDlKSUJNOGU5WFNjZXZ1emNDaW52MXhYVzNVV0ZjOE8zQnVkZ09jOHJleFg5VU8rCk5wMytENG41ZUlBTndYWUwxV1VKbGJTWXZ1ZHBPcmRNcFZaNEwxZXJSN3dBUDZUZUUzOW0wRVpMWklKSHA2QzcKN1lMWXdoMFRkT3MxVVdaTlpIUGM0NHFKL3FRNUxZZmdxam9kNnN0N3RlRkMzMnRCMFJ0eHlyUmxjV3JYczE2cApaaDVpc08rN0Z3K1Z0RWkxZFZRcG9DVjBFWGJVdXd5QVJoK1FvNFd6OUw4RDBudm92ZDY0ZmtxakFqNGFQWUFOCm5BOG1iUE09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2Z0lCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktnd2dnU2tBZ0VBQW9JQkFRRE5rMWM2SzFCWHFLcmQKZjRIZVhOWUc5R3pUcndrRU5nOTlyVUtpV2pqSGRPNmFQUmRHenh6Z0t0bW5hRVIzdDZ3WW1LVHYyT2JIMHp4NQpkUnpsQXkvQk5KYzA4d0FVTTBKT09EMGVCdjdYUkxrU0NyRWJnK3lxQkdISjlzT09sRlBXM1dKOHhYR2lhMUJqCnFrbjJRbFVGelEybDRjTGFrL3pMRjVXZHhqZnZSRHFqcUx1Qm5RNEd1cVZzTGxjUFBDKzZIUFdjVy9LbGFxNzUKTklVbThCMU5ZS3dFSjhLTnhldGRsNElpTU5jeXFKSW1FVFdxRlRvdExnUzk5elFyekdzU01JUVlVbXB2aDF3Sgp6VGNkRkhGU1hsa1l0eDEyY2VWcUJLSTFxVkZieXJpS1ZHSmp0MXV3WFRzeE1TNklXcFlhek11WTF2LzRJaXlMCm1qT1FNUm5iQWdNQkFBRUNnZ0VCQUsrNlpWVUNzTzJqZVhzRmgva1VQWGxmSzJNVjBhcVZIRXhhLzB0TGZxR2sKY3EzKzNjeGVFTDhJdnlDVVk3bDNqUldINWVmK2hwRlBkUWVNMXcrQ3E5Z1lpanA0bHFCWXlPZkxOVUNNN2xWVgpNWkR6QWFQdmZvWUJySGgxaEN4ZExHR0s1TUFFc2hEallyK3hTdEVhaW51T2srQlpGZnYyQkRla0tpVzl6c3VVCmV3b3d5QUhxeW0vWi90NG9Fb1FYUW02bWt3T2hOcURhRmx6WjczZVhmRzBEb1lPWVZkckFnRkVxQUw2d21wNHcKZzF1QXdNaURsRDMvSzZ4bjN4QXFxTUx2VnMrZXd1TmF5cjNwR0hPUE1QcnlxU01sSEdGYXdnRUJiSXkraTQ4YQoraTM5cllKYUNIN0FzdXUzRWRnRjFuSXFJQWJQSE4vUnRkaUt6S1VDZ1lFQTl6bWI0VXQ1M2RFTktoa2pBZmlsCkdrTkRWaW9hY1NCamlVQ2MyaXB2Q0lSWW51UVpYWE9kd2pkMURHM3AzWERHR0pqT0xMK0JGbEdNRGZXTnFlQzQKQTZvYjExcEJPYWxXQzM5OHpoVDF4dCs2T2podjVQeEMva3JhTkdKU3hNUGhJYUExd0lmZ1Y4UmdOMmJkNm1hcgp5cVhUVk94ZzF5L21pNHNRbTVrQjY5VUNnWUVBMURVenJLRGFSUWEyazZCcnBSNjZaSGdYSGI3d3I3WTdFWi9SCnZPeHB1WmZ0U0k5WVdUOW5XR0VzQzhHWWhTMVNFZlBmdnlIRGoxdUVFUzFoNEJ4SzVSWmJZVGtGRlZZWWNnUEIKY3VYT1JoTm5FN0U3MWZsTE9mTGtxT0Y4d3dGKy83K3g0YXpUNlU4Z0VGdmtZdUJiTnpjYjU1WE9yYzF0QnZoQgprZmNWN1ZNQ2dZQnVIemJtaXdHeUNqbWNJdzJjb21vQzBCbWlhbGk5SGNVQjQvNnNNVVBTNkJFcjhJUlE5dEd0Cm9ub0hpQXFHVXFGMi9aNHFwdG1yVkhnUStlOWFpYzhaMHJqQ3lEQVVOdmd4WDZ5V3BzTGZ1NGFvT0s3enNVcWkKS3l4Uk9XN3hWNlBtRUFYWDNOdElPSTRYN3VRM1B1NGRmUGZlRUIwSC9uN2Z3K1NSNHN0SmJRSi9QUUtCZ0VGSgpkOTdpVWNSM0g5eVhoZzc1ZkgzQlVUVHFhc0NhZDk5S0JtSkRaN1I3TVBocXorRnNCL0dEYzVmQzlWck1YKzc3CkE5ODFmTU1TSDdVMHpoWEFLQmxGUEVJQWozOGVMMHBZWUJGQlpEWmI3OTNPQ1JzM2VVU3lXY1hxQzNSZjRqdWUKT1NkNjBhRmJPekQxQjY2aG5ibGFmeFdsa29YRjRrSEVvclB3TndxOUFvR0JBTDlvcUJHb1JNTXBWNzIzdW5ZRwpIdWY5cEp5WTJYVjdUQjhKZ21ybm1Pd2FsQVJSWW9iaEdEcXRmcmwzTE9tYkNaTDBHVzJOUkZyOXdId0RSNVJJCm1kK09UZ1RxQXNkemhvYllVeHVyWDRRdTlYQlRpQVFUK1hCM1p3VGpmOVNONkJBZUVoTmZXV0Q2TjZJZUJ5bDUKVEJLY0IxYzNqOEhJZ0F2clE5dGpTRVZOCi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tcp-services
+  namespace: ingress-nginx
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: udp-services
+  namespace: ingress-nginx

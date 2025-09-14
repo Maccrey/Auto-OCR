@@ -1,0 +1,140 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: k-ocr-ingress
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-web-corrector
+    app.kubernetes.io/component: ingress
+  annotations:
+    # Nginx Ingress Controller
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+
+    # Upload size limit
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/client-max-body-size: "100m"
+
+    # Timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options DENY always;
+      add_header X-Content-Type-Options nosniff always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Referrer-Policy strict-origin-when-cross-origin always;
+      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' cdnjs.cloudflare.com fonts.googleapis.com; font-src fonts.gstatic.com; img-src 'self' data:; connect-src 'self';" always;
+
+    # Certificate management (cert-manager)
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/acme-challenge-type: http01
+
+spec:
+  tls:
+  - hosts:
+    - k-ocr.your-domain.com
+    - api.k-ocr.your-domain.com
+    secretName: k-ocr-tls
+  rules:
+  - host: k-ocr.your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: k-ocr-nginx
+            port:
+              number: 80
+  - host: api.k-ocr.your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: k-ocr-web
+            port:
+              number: 8000
+
+---
+# Alternative: Application Load Balancer for AWS
+apiVersion: v1
+kind: Service
+metadata:
+  name: k-ocr-web-lb
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-web
+    app.kubernetes.io/component: load-balancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: "HTTP"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: "/api/download/health"
+    service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "8000"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:region:account:certificate/cert-id"
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+  - name: https
+    port: 443
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: k-ocr-nginx
+
+---
+# Google Cloud Load Balancer
+apiVersion: v1
+kind: Service
+metadata:
+  name: k-ocr-web-gcp-lb
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-web
+    app.kubernetes.io/component: load-balancer
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+    cloud.google.com/backend-config: '{"ports": {"80":"k-ocr-backend-config"}}'
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: k-ocr-nginx
+
+---
+# Azure Load Balancer
+apiVersion: v1
+kind: Service
+metadata:
+  name: k-ocr-web-azure-lb
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-web
+    app.kubernetes.io/component: load-balancer
+  annotations:
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: "/api/download/health"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: k-ocr-nginx

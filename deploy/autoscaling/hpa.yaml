@@ -1,0 +1,398 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: k-ocr-web-hpa
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-web-hpa
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: k-ocr-web
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  # CPU-based scaling
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  # Memory-based scaling
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Custom metrics for request-based scaling
+  - type: Pods
+    pods:
+      metric:
+        name: nginx_ingress_controller_requests
+        selector:
+          matchLabels:
+            service: k-ocr-web
+      target:
+        type: AverageValue
+        averageValue: "100"  # 100 requests per second per pod
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5 minutes
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 60  # 1 minute
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+      - type: Pods
+        value: 4
+        periodSeconds: 15
+      selectPolicy: Max
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: k-ocr-worker-hpa
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-worker-hpa
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: k-ocr-worker
+  minReplicas: 2
+  maxReplicas: 15
+  metrics:
+  # CPU-based scaling (workers are CPU intensive)
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Memory-based scaling
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 85
+  # Queue-based scaling using Redis queue length
+  - type: External
+    external:
+      metric:
+        name: redis_queue_length
+        selector:
+          matchLabels:
+            queue_name: "celery"
+      target:
+        type: AverageValue
+        averageValue: "5"  # 5 tasks per worker
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5 minutes
+      policies:
+      - type: Percent
+        value: 25  # More conservative for workers
+        periodSeconds: 60
+      - type: Pods
+        value: 1
+        periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 30  # Quick response for queue buildup
+      policies:
+      - type: Percent
+        value: 200
+        periodSeconds: 15
+      - type: Pods
+        value: 3
+        periodSeconds: 15
+      selectPolicy: Max
+
+---
+# Vertical Pod Autoscaler for fine-tuning resource requests
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: k-ocr-web-vpa
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-web-vpa
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: k-ocr-web
+  updatePolicy:
+    updateMode: "Auto"  # Automatically apply recommendations
+  resourcePolicy:
+    containerPolicies:
+    - containerName: k-ocr-web
+      minAllowed:
+        cpu: 100m
+        memory: 512Mi
+      maxAllowed:
+        cpu: 2000m
+        memory: 4Gi
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits
+
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: k-ocr-worker-vpa
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-worker-vpa
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: k-ocr-worker
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: k-ocr-worker
+      minAllowed:
+        cpu: 500m
+        memory: 2Gi
+      maxAllowed:
+        cpu: 4000m
+        memory: 8Gi
+      controlledResources: ["cpu", "memory"]
+      controlledValues: RequestsAndLimits
+
+---
+# Pod Disruption Budget for web service
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: k-ocr-web-pdb
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-web-pdb
+    app.kubernetes.io/component: availability
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  minAvailable: 2  # Always keep at least 2 web pods running
+  selector:
+    matchLabels:
+      app: k-ocr-web
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: k-ocr-worker-pdb
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-worker-pdb
+    app.kubernetes.io/component: availability
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  minAvailable: 1  # Always keep at least 1 worker running
+  selector:
+    matchLabels:
+      app: k-ocr-worker
+
+---
+# Custom resource for KEDA-based autoscaling (if using KEDA)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: k-ocr-worker-keda
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-worker-keda
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  scaleTargetRef:
+    name: k-ocr-worker
+  minReplicaCount: 2
+  maxReplicaCount: 15
+  pollingInterval: 30
+  cooldownPeriod: 300
+  triggers:
+  - type: redis
+    metadata:
+      address: k-ocr-redis-service:6379
+      listName: celery
+      listLength: '5'
+      enableTLS: 'false'
+    authenticationRef:
+      name: redis-auth
+
+---
+# Authentication for KEDA Redis trigger
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: redis-auth
+  namespace: k-ocr
+spec:
+  secretTargetRef:
+  - parameter: password
+    name: k-ocr-secrets
+    key: REDIS_PASSWORD
+
+---
+# ScaledObject for web service based on HTTP requests (if using KEDA)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: k-ocr-web-keda
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-web-keda
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  scaleTargetRef:
+    name: k-ocr-web
+  minReplicaCount: 3
+  maxReplicaCount: 20
+  pollingInterval: 15
+  cooldownPeriod: 180
+  triggers:
+  - type: prometheus
+    metadata:
+      serverAddress: http://prometheus-server:9090
+      metricName: nginx_ingress_controller_requests_rate
+      threshold: '100'
+      query: |
+        sum(rate(nginx_ingress_controller_requests[2m]){
+          service="k-ocr-web-service",
+          namespace="k-ocr"
+        }) by (service)
+
+---
+# ServiceMonitor for custom metrics collection
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: k-ocr-autoscaling-metrics
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-autoscaling-metrics
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  selector:
+    matchLabels:
+      app: k-ocr-web
+  endpoints:
+  - port: http
+    interval: 15s
+    path: /metrics
+    honorLabels: true
+  namespaceSelector:
+    matchNames:
+    - k-ocr
+
+---
+# PrometheusRule for custom autoscaling metrics
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: k-ocr-autoscaling-rules
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-autoscaling-rules
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: k-ocr
+spec:
+  groups:
+  - name: k-ocr.autoscaling
+    interval: 15s
+    rules:
+    - record: k_ocr:request_rate_per_pod
+      expr: |
+        sum(rate(nginx_ingress_controller_requests[2m]){
+          service="k-ocr-web-service",
+          namespace="k-ocr"
+        }) /
+        sum(up{job="k-ocr-web"})
+
+    - record: k_ocr:queue_length_per_worker
+      expr: |
+        redis_list_length{list="celery"} /
+        sum(up{job="k-ocr-worker"})
+
+    - record: k_ocr:cpu_usage_prediction
+      expr: |
+        predict_linear(
+          k_ocr:request_rate_per_pod[5m], 300
+        )
+
+    - record: k_ocr:memory_usage_prediction
+      expr: |
+        predict_linear(
+          container_memory_usage_bytes{
+            pod=~"k-ocr-web-.*",
+            container="k-ocr-web"
+          }[5m], 300
+        )
+
+---
+# ConfigMap for autoscaling configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k-ocr-autoscaling-config
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-autoscaling-config
+    app.kubernetes.io/component: configuration
+    app.kubernetes.io/part-of: k-ocr
+data:
+  # HPA configuration
+  hpa_cpu_target: "70"
+  hpa_memory_target: "80"
+  hpa_requests_per_pod_target: "100"
+  hpa_scale_down_window: "300"
+  hpa_scale_up_window: "60"
+
+  # VPA configuration
+  vpa_update_mode: "Auto"
+  vpa_min_cpu: "100m"
+  vpa_max_cpu: "2000m"
+  vpa_min_memory: "512Mi"
+  vpa_max_memory: "4Gi"
+
+  # Worker-specific configuration
+  worker_queue_length_target: "5"
+  worker_cpu_target: "80"
+  worker_memory_target: "85"
+  worker_min_replicas: "2"
+  worker_max_replicas: "15"
+
+  # Scaling policies
+  scale_down_percent_limit: "50"
+  scale_up_percent_limit: "100"
+  scale_down_pods_limit: "2"
+  scale_up_pods_limit: "4"

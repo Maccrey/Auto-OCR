@@ -522,11 +522,74 @@
 - [x] 40개 관리 명령어를 가진 Makefile 완성
 - [x] 종합 헬스체크 및 모델 관리 시스템 구축
 
-#### 6.2 클라우드 배포 준비
-- [ ] 클라우드 배포용 설정 파일 작성
-- [ ] 로드 밸런서 설정
-- [ ] 자동 스케일링 설정
-- [ ] 모니터링 및 로깅 설정
+#### 6.2 클라우드 배포 준비 ✅ **완료됨**
+
+**클라우드 배포용 설정 파일 작성**
+- [x] AWS 배포 설정 완료
+  - [x] ECS Task Definition 및 CloudFormation 템플릿 (deploy/aws/)
+  - [x] Terraform 인프라 코드 (deploy/aws/terraform/)
+  - [x] 변수 파일 및 예시 설정 (terraform.tfvars.example)
+- [x] GCP 배포 설정 완료
+  - [x] GKE Deployment 설정 (deploy/gcp/)
+  - [x] Terraform 인프라 코드 (deploy/gcp/terraform/)
+  - [x] Cloud SQL, Redis, Storage 설정
+- [x] Azure 배포 설정 완료
+  - [x] AKS Deployment 설정 (deploy/azure/)
+  - [x] Terraform 인프라 코드 (deploy/azure/terraform/)
+  - [x] PostgreSQL, Redis Cache, Storage Account 설정
+
+**로드 밸런서 설정**
+- [x] NGINX Ingress Controller 설정 (deploy/load-balancer/)
+  - [x] 성능 최적화 및 보안 헤더 설정
+  - [x] Rate limiting 및 CORS 설정
+  - [x] SSL/TLS 설정 및 압축 최적화
+- [x] Cert-Manager 자동 SSL 인증서 관리
+  - [x] Let's Encrypt 통합 (staging/production)
+  - [x] 자동 인증서 갱신 설정
+- [x] K-OCR 전용 Ingress 규칙 설정
+  - [x] 메인 도메인 및 www 리다이렉트
+  - [x] 관리자 도메인 접근 제한 및 BasicAuth
+
+**자동 스케일링 설정**
+- [x] Horizontal Pod Autoscaler (HPA) 설정 (deploy/autoscaling/)
+  - [x] CPU/메모리 기반 스케일링 (웹: 3-20개, 워커: 2-15개)
+  - [x] 커스텀 메트릭 기반 스케일링 (요청량, 큐 길이)
+  - [x] 스케일링 정책 및 안정화 윈도우 설정
+- [x] Vertical Pod Autoscaler (VPA) 설정
+  - [x] 자동 리소스 요청/제한 최적화
+  - [x] 컨테이너별 리소스 정책 설정
+- [x] Cluster Autoscaler 설정
+  - [x] AWS/GCP/Azure 별 클러스터 스케일링
+  - [x] 노드 그룹 자동 발견 및 우선순위 설정
+  - [x] Spot 인스턴스 활용 최적화
+- [x] KEDA 기반 이벤트 드리븐 스케일링
+  - [x] Redis 큐 길이 기반 워커 스케일링
+  - [x] Prometheus 메트릭 기반 웹 서비스 스케일링
+- [x] Pod Disruption Budget 설정 (고가용성 보장)
+
+**모니터링 및 로깅 설정**
+- [x] Prometheus 모니터링 스택 (deploy/monitoring/)
+  - [x] K-OCR 전용 메트릭 수집 및 규칙 정의
+  - [x] 애플리케이션, 인프라, 클러스터 메트릭 통합
+  - [x] 알림 규칙 및 임계값 설정 (CPU, 메모리, 오류율, 지연시간)
+- [x] Grafana 대시보드 및 시각화
+  - [x] K-OCR Overview 대시보드 구성
+  - [x] 실시간 메트릭 및 트렌드 분석
+  - [x] 자동 프로비저닝 및 데이터소스 설정
+- [x] AlertManager 알림 시스템
+  - [x] 이메일, Slack, PagerDuty 통합 알림
+  - [x] 심각도별 알림 라우팅 (Critical, Warning)
+  - [x] 알림 템플릿 및 억제 규칙 설정
+- [x] ELK 스택 로깅 시스템
+  - [x] Elasticsearch 클러스터 (3노드) 및 인덱스 관리
+  - [x] Kibana 대시보드 및 로그 분석 도구
+  - [x] Filebeat DaemonSet 로그 수집 (네임스페이스별)
+  - [x] Logstash 로그 파싱 및 전처리
+  - [x] 로그 생명주기 관리 (30일 보관)
+- [x] Jaeger 분산 트레이싱 시스템
+  - [x] OpenTelemetry Collector 설정
+  - [x] 프로덕션용 Elasticsearch 백엔드
+  - [x] K8s 속성 자동 추가 및 서비스 맵 생성
 
 #### 6.3 배포 테스트
 - [ ] 로컬 Docker 환경 테스트

@@ -1,0 +1,91 @@
+# AWS Configuration
+aws_region  = "us-west-2"
+environment = "production"
+
+# Network Configuration
+vpc_cidr           = "10.0.0.0/16"
+availability_zones = ["us-west-2a", "us-west-2b"]
+
+# Database Configuration
+db_instance_class           = "db.t3.medium"
+db_allocated_storage        = 100
+db_max_allocated_storage    = 1000
+db_password                = "your-secure-database-password"  # Change this!
+db_backup_retention_period = 7
+db_multi_az                = true
+
+# Cache Configuration
+redis_node_type        = "cache.t3.medium"
+redis_num_cache_nodes  = 1
+
+# ECS Configuration
+ecs_web_cpu            = 2048
+ecs_web_memory         = 4096
+ecs_web_desired_count  = 3
+
+ecs_worker_cpu         = 4096
+ecs_worker_memory      = 8192
+ecs_worker_desired_count = 2
+
+# Auto Scaling Configuration
+autoscaling_enabled      = true
+autoscaling_min_capacity = 2
+autoscaling_max_capacity = 10
+autoscaling_cpu_target   = 70
+autoscaling_memory_target = 80
+
+# Load Balancer Configuration
+alb_enable_deletion_protection = true
+alb_idle_timeout              = 60
+
+# SSL/TLS Configuration (Optional - configure if you have a domain)
+# certificate_arn = "arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012"
+# domain_name     = "k-ocr.yourdomain.com"
+# hosted_zone_id  = "Z1234567890123"
+
+# Storage Configuration
+efs_throughput_mode                      = "provisioned"
+efs_provisioned_throughput_in_mibps      = 100
+s3_lifecycle_temp_files_expiration_days  = 7
+
+# Monitoring Configuration
+cloudwatch_log_retention_days = 30
+enable_container_insights     = true
+
+# Security Configuration
+allowed_cidr_blocks = ["0.0.0.0/0"]  # Restrict this in production!
+enable_waf          = true
+
+# Backup Configuration
+enable_s3_versioning      = true
+s3_backup_retention_days  = 90
+
+# Cost Optimization
+enable_spot_instances     = true
+spot_instance_percentage  = 80
+
+# Container Image Configuration
+container_image_tag = "latest"
+# ecr_repository_url = "123456789012.dkr.ecr.us-west-2.amazonaws.com/k-ocr-web-corrector"
+
+# Infrastructure Options
+enable_vpc_flow_logs = true
+enable_nat_gateway   = true
+single_nat_gateway   = false  # Set to true for cost savings in non-production
+
+# Notifications (Optional)
+# notification_email    = "admin@yourdomain.com"
+# slack_webhook_url     = "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK"
+
+# Additional Resource Tags
+additional_tags = {
+  Owner       = "DevOps Team"
+  Project     = "K-OCR Web Corrector"
+  CostCenter  = "Engineering"
+  Backup      = "Required"
+}
+
+# Development Configuration (for non-production environments)
+enable_bastion_host = false
+# bastion_key_name    = "your-ec2-key-pair"
+# developer_ip_addresses = ["203.0.113.1/32", "203.0.113.2/32"]

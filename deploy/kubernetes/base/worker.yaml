@@ -1,0 +1,169 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k-ocr-worker
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-worker
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k-ocr-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k-ocr-worker
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/version: "1.0.0"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: k-ocr-worker
+        image: k-ocr-web-corrector:latest
+        imagePullPolicy: Always
+        command:
+        - celery
+        - -A
+        - backend.core.tasks
+        - worker
+        - --loglevel=info
+        - --concurrency=4
+        - --max-tasks-per-child=1000
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-secrets
+              key: SECRET_KEY
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-secrets
+              key: POSTGRES_PASSWORD
+        envFrom:
+        - configMapRef:
+            name: k-ocr-config
+        volumeMounts:
+        - name: temp-storage
+          mountPath: /app/temp_storage
+        - name: app-logs
+          mountPath: /app/logs
+        - name: ocr-models
+          mountPath: /app/models
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - backend.core.tasks
+            - inspect
+            - ping
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - backend.core.tasks
+            - inspect
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes:
+      - name: temp-storage
+        persistentVolumeClaim:
+          claimName: k-ocr-temp-storage
+      - name: app-logs
+        persistentVolumeClaim:
+          claimName: k-ocr-app-logs
+      - name: ocr-models
+        persistentVolumeClaim:
+          claimName: k-ocr-ocr-models
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k-ocr-scheduler
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: k-ocr-scheduler
+    app.kubernetes.io/component: scheduler
+    app.kubernetes.io/version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k-ocr-scheduler
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k-ocr-scheduler
+        app.kubernetes.io/component: scheduler
+        app.kubernetes.io/version: "1.0.0"
+    spec:
+      containers:
+      - name: k-ocr-scheduler
+        image: k-ocr-web-corrector:latest
+        imagePullPolicy: Always
+        command:
+        - celery
+        - -A
+        - backend.core.tasks
+        - beat
+        - --loglevel=info
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-secrets
+              key: SECRET_KEY
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-secrets
+              key: POSTGRES_PASSWORD
+        envFrom:
+        - configMapRef:
+            name: k-ocr-config
+        volumeMounts:
+        - name: temp-storage
+          mountPath: /app/temp_storage
+        - name: app-logs
+          mountPath: /app/logs
+        - name: celerybeat-schedule
+          mountPath: /app/celerybeat-schedule
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "200m"
+      volumes:
+      - name: temp-storage
+        persistentVolumeClaim:
+          claimName: k-ocr-temp-storage
+      - name: app-logs
+        persistentVolumeClaim:
+          claimName: k-ocr-app-logs
+      - name: celerybeat-schedule
+        emptyDir: {}

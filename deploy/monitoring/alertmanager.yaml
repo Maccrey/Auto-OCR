@@ -1,0 +1,360 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+data:
+  config.yml: |-
+    global:
+      # Global SMTP configuration
+      smtp_smarthost: 'smtp.gmail.com:587'
+      smtp_from: 'alerts@yourdomain.com'
+      smtp_auth_username: 'alerts@yourdomain.com'
+      smtp_auth_password_file: '/etc/alertmanager/secrets/smtp-password'
+
+    # Templates for alert notifications
+    templates:
+    - '/etc/alertmanager/templates/*.tmpl'
+
+    # Route tree for alert routing
+    route:
+      group_by: ['alertname', 'cluster', 'service']
+      group_wait: 10s
+      group_interval: 10s
+      repeat_interval: 1h
+      receiver: 'default-receiver'
+      routes:
+      # Critical alerts go to multiple channels
+      - match:
+          severity: critical
+        receiver: 'critical-alerts'
+        group_wait: 0s
+        group_interval: 5m
+        repeat_interval: 30m
+
+      # K-OCR specific alerts
+      - match:
+          service: k-ocr
+        receiver: 'k-ocr-alerts'
+        group_interval: 5m
+        repeat_interval: 2h
+
+      # Infrastructure alerts
+      - match_re:
+          alertname: ^(ClusterAutoscaler|PrometheusDown|GrafanaDown).*
+        receiver: 'infrastructure-alerts'
+
+    # Notification receivers
+    receivers:
+    - name: 'default-receiver'
+      email_configs:
+      - to: 'devops@yourdomain.com'
+        subject: 'K-OCR Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Instance: {{ .Labels.instance }}
+          {{ end }}
+
+    - name: 'critical-alerts'
+      email_configs:
+      - to: 'devops@yourdomain.com,admin@yourdomain.com'
+        subject: '🚨 CRITICAL: K-OCR Alert - {{ .GroupLabels.alertname }}'
+        body: |
+          🚨 CRITICAL ALERT 🚨
+
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+
+      slack_configs:
+      - api_url_file: '/etc/alertmanager/secrets/slack-webhook'
+        channel: '#alerts'
+        title: '🚨 Critical K-OCR Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert*: {{ .Annotations.summary }}
+          *Description*: {{ .Annotations.description }}
+          *Severity*: {{ .Labels.severity }}
+          *Service*: {{ .Labels.service }}
+          {{ end }}
+
+      pagerduty_configs:
+      - routing_key_file: '/etc/alertmanager/secrets/pagerduty-key'
+        description: |
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+          {{ end }}
+
+    - name: 'k-ocr-alerts'
+      email_configs:
+      - to: 'k-ocr-team@yourdomain.com'
+        subject: 'K-OCR Service Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          K-OCR Service Alert
+
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Component: {{ .Labels.component }}
+          Pod: {{ .Labels.pod }}
+          Started: {{ .StartsAt }}
+
+          Runbook: https://wiki.yourdomain.com/k-ocr/runbooks/{{ .Labels.alertname }}
+          {{ end }}
+
+      slack_configs:
+      - api_url_file: '/etc/alertmanager/secrets/slack-webhook'
+        channel: '#k-ocr-alerts'
+        title: 'K-OCR Service Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert*: {{ .Annotations.summary }}
+          *Component*: {{ .Labels.component }}
+          *Pod*: {{ .Labels.pod }}
+          {{ end }}
+
+    - name: 'infrastructure-alerts'
+      email_configs:
+      - to: 'infrastructure@yourdomain.com'
+        subject: 'Infrastructure Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Infrastructure Component Alert
+
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Component: {{ .Labels.component }}
+          {{ end }}
+
+    # Inhibition rules to reduce noise
+    inhibit_rules:
+    - source_match:
+        severity: 'critical'
+      target_match:
+        severity: 'warning'
+      equal: ['alertname', 'dev', 'instance']
+
+    - source_match:
+        alertname: 'K-OCRWebDown'
+      target_match_re:
+        alertname: 'K-OCRHigh.*'
+      equal: ['service']
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-templates
+  namespace: monitoring
+data:
+  default.tmpl: |
+    {{ define "__subject" }}[{{ .Status | toUpper }}{{ if eq .Status "firing" }}:{{ .Alerts.Firing | len }}{{ end }}] {{ .GroupLabels.SortedPairs.Values | join " " }} {{ if gt (len .CommonLabels) (len .GroupLabels) }}({{ with .CommonLabels.Remove .GroupLabels.Names }}{{ .Values | join " " }}{{ end }}){{ end }}{{ end }}
+
+    {{ define "__description" }}{{ end }}
+
+    {{ define "__text_alert_list" }}{{ range . }}Labels:
+    {{ range .Labels.SortedPairs }} - {{ .Name }} = {{ .Value }}
+    {{ end }}Annotations:
+    {{ range .Annotations.SortedPairs }} - {{ .Name }} = {{ .Value }}
+    {{ end }}Source: {{ .GeneratorURL }}
+    {{ end }}{{ end }}
+
+    {{ define "slack.default.title" }}{{ template "__subject" . }}{{ end }}
+    {{ define "slack.default.username" }}AlertManager{{ end }}
+    {{ define "slack.default.fallback" }}{{ template "slack.default.title" . }} | {{ template "slack.default.titlelink" . }}{{ end }}
+    {{ define "slack.default.pretext" }}{{ end }}
+    {{ define "slack.default.titlelink" }}{{ template "__alertmanagerURL" . }}{{ end }}
+    {{ define "slack.default.iconemoji" }}{{ end }}
+    {{ define "slack.default.iconurl" }}{{ end }}
+    {{ define "slack.default.text" }}{{ end }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: monitoring
+  labels:
+    app: alertmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+      - name: alertmanager
+        image: prom/alertmanager:v0.26.0
+        args:
+          - '--config.file=/etc/alertmanager/config.yml'
+          - '--storage.path=/alertmanager'
+          - '--web.external-url=https://alertmanager.k-ocr.yourdomain.com'
+          - '--web.route-prefix=/'
+          - '--cluster.listen-address=0.0.0.0:9094'
+          - '--log.level=info'
+        ports:
+        - containerPort: 9093
+          name: web
+        - containerPort: 9094
+          name: cluster
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/alertmanager
+        - name: templates-volume
+          mountPath: /etc/alertmanager/templates
+        - name: secrets-volume
+          mountPath: /etc/alertmanager/secrets
+        - name: storage-volume
+          mountPath: /alertmanager
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 9093
+          initialDelaySeconds: 30
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 9093
+          initialDelaySeconds: 30
+          periodSeconds: 5
+      volumes:
+      - name: config-volume
+        configMap:
+          name: alertmanager-config
+      - name: templates-volume
+        configMap:
+          name: alertmanager-templates
+      - name: secrets-volume
+        secret:
+          secretName: alertmanager-secrets
+      - name: storage-volume
+        persistentVolumeClaim:
+          claimName: alertmanager-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: monitoring
+  labels:
+    app: alertmanager
+spec:
+  selector:
+    app: alertmanager
+  ports:
+  - name: web
+    port: 9093
+    targetPort: 9093
+  - name: cluster
+    port: 9094
+    targetPort: 9094
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: alertmanager-pvc
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: fast-ssd
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-secrets
+  namespace: monitoring
+type: Opaque
+data:
+  # SMTP password (base64 encoded)
+  smtp-password: <base64-encoded-smtp-password>
+  # Slack webhook URL (base64 encoded)
+  slack-webhook: <base64-encoded-slack-webhook-url>
+  # PagerDuty routing key (base64 encoded)
+  pagerduty-key: <base64-encoded-pagerduty-routing-key>
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: alertmanager-ingress
+  namespace: monitoring
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-secret: monitoring-auth
+    nginx.ingress.kubernetes.io/auth-realm: 'AlertManager'
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - alertmanager.k-ocr.yourdomain.com
+    secretName: alertmanager-tls
+  rules:
+  - host: alertmanager.k-ocr.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: alertmanager
+            port:
+              number: 9093
+
+---
+# ServiceMonitor for AlertManager
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: alertmanager
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: alertmanager
+  endpoints:
+  - port: web
+    interval: 30s
+    path: /metrics
+
+---
+# Basic auth secret for monitoring tools
+apiVersion: v1
+kind: Secret
+metadata:
+  name: monitoring-auth
+  namespace: monitoring
+type: Opaque
+data:
+  # admin:monitoring123 (change this!)
+  # Generated using: htpasswd -nb admin monitoring123 | base64 -w 0
+  auth: YWRtaW46JGFwcjEkSzBtRGZOREokS1lPbGM4VklZRWhHa21XZ0VGWmNhLwoK

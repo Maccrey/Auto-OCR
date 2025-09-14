@@ -36,7 +36,8 @@
       "Bash(python:*)",
       "Bash(find:*)",
       "Bash(pytest:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

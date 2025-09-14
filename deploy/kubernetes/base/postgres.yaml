@@ -1,0 +1,166 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: k-ocr-postgres
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app.kubernetes.io/name: postgres
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: k-ocr-postgres
+  namespace: k-ocr
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+spec:
+  serviceName: k-ocr-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-postgres-secret
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-postgres-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-postgres-secret
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_INITDB_ARGS
+          value: "--encoding=UTF-8 --locale=C"
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - exec pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" -h 127.0.0.1 -p 5432
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: k-ocr-postgres-data
+      - name: init-script
+        configMap:
+          name: k-ocr-postgres-init
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k-ocr-postgres-init
+  namespace: k-ocr
+data:
+  init.sql: |
+    -- K-OCR Web Corrector - Database Initialization Script
+    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+    CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
+
+    -- Create schemas
+    CREATE SCHEMA IF NOT EXISTS ocr_data;
+    CREATE SCHEMA IF NOT EXISTS audit;
+
+    -- Upload tracking table
+    CREATE TABLE IF NOT EXISTS ocr_data.uploads (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        filename VARCHAR(255) NOT NULL,
+        file_size BIGINT NOT NULL,
+        file_hash VARCHAR(64) NOT NULL,
+        mime_type VARCHAR(100) NOT NULL,
+        upload_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP WITH TIME ZONE,
+        status VARCHAR(50) DEFAULT 'uploaded',
+        user_ip INET,
+        user_agent TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Processing jobs table
+    CREATE TABLE IF NOT EXISTS ocr_data.processing_jobs (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        upload_id UUID REFERENCES ocr_data.uploads(id) ON DELETE CASCADE,
+        job_id VARCHAR(255) UNIQUE NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending',
+        progress INTEGER DEFAULT 0,
+        current_step VARCHAR(100),
+        ocr_engine VARCHAR(50),
+        processing_options JSONB,
+        started_at TIMESTAMP WITH TIME ZONE,
+        completed_at TIMESTAMP WITH TIME ZONE,
+        error_message TEXT,
+        processing_time INTERVAL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- OCR results table
+    CREATE TABLE IF NOT EXISTS ocr_data.ocr_results (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        job_id UUID REFERENCES ocr_data.processing_jobs(id) ON DELETE CASCADE,
+        raw_text TEXT,
+        corrected_text TEXT,
+        confidence_score DECIMAL(5,4),
+        page_count INTEGER,
+        word_count INTEGER,
+        character_count INTEGER,
+        correction_applied BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Indexes for performance
+    CREATE INDEX IF NOT EXISTS idx_uploads_status ON ocr_data.uploads(status);
+    CREATE INDEX IF NOT EXISTS idx_uploads_expires_at ON ocr_data.uploads(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_processing_jobs_status ON ocr_data.processing_jobs(status);
+    CREATE INDEX IF NOT EXISTS idx_processing_jobs_job_id ON ocr_data.processing_jobs(job_id);

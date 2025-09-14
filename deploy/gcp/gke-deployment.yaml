@@ -1,0 +1,518 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k-ocr-config
+  namespace: k-ocr
+data:
+  ENVIRONMENT: "production"
+  DATABASE_URL: "postgresql://k_ocr_user:password@k-ocr-postgres-service:5432/k_ocr_db"
+  REDIS_URL: "redis://k-ocr-redis-service:6379/0"
+  GOOGLE_CLOUD_PROJECT: "your-project-id"
+  GOOGLE_CLOUD_REGION: "us-central1"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: k-ocr-secrets
+  namespace: k-ocr
+type: Opaque
+data:
+  SECRET_KEY: <base64-encoded-secret-key>
+  POSTGRES_PASSWORD: <base64-encoded-postgres-password>
+  GOOGLE_APPLICATION_CREDENTIALS_JSON: <base64-encoded-service-account-json>
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k-ocr-web-service
+  namespace: k-ocr
+  labels:
+    app: k-ocr-web
+spec:
+  selector:
+    app: k-ocr-web
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k-ocr-web
+  namespace: k-ocr
+  labels:
+    app: k-ocr-web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: k-ocr-web
+  template:
+    metadata:
+      labels:
+        app: k-ocr-web
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: k-ocr-service-account
+      containers:
+      - name: k-ocr-web
+        image: gcr.io/PROJECT_ID/k-ocr-web-corrector:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-secrets
+              key: SECRET_KEY
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-secrets
+              key: POSTGRES_PASSWORD
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/var/secrets/google/service-account.json"
+        envFrom:
+        - configMapRef:
+            name: k-ocr-config
+        volumeMounts:
+        - name: temp-storage
+          mountPath: /app/temp_storage
+        - name: ocr-models
+          mountPath: /app/models
+        - name: google-cloud-key
+          mountPath: /var/secrets/google
+          readOnly: true
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /api/download/health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/download/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /api/download/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+      volumes:
+      - name: temp-storage
+        persistentVolumeClaim:
+          claimName: k-ocr-temp-storage-pvc
+      - name: ocr-models
+        persistentVolumeClaim:
+          claimName: k-ocr-models-pvc
+      - name: google-cloud-key
+        secret:
+          secretName: k-ocr-secrets
+          items:
+          - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+            path: service-account.json
+      initContainers:
+      - name: model-downloader
+        image: gcr.io/PROJECT_ID/k-ocr-web-corrector:latest
+        command: ["python", "scripts/download_models.py"]
+        env:
+        - name: MODEL_CACHE_DIR
+          value: "/app/models"
+        volumeMounts:
+        - name: ocr-models
+          mountPath: /app/models
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k-ocr-worker-service
+  namespace: k-ocr
+  labels:
+    app: k-ocr-worker
+spec:
+  selector:
+    app: k-ocr-worker
+  ports:
+    - port: 8001
+      targetPort: 8001
+      protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k-ocr-worker
+  namespace: k-ocr
+  labels:
+    app: k-ocr-worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: k-ocr-worker
+  template:
+    metadata:
+      labels:
+        app: k-ocr-worker
+    spec:
+      serviceAccountName: k-ocr-service-account
+      containers:
+      - name: k-ocr-worker
+        image: gcr.io/PROJECT_ID/k-ocr-web-corrector:latest
+        command: ["celery", "-A", "backend.core.tasks", "worker", "--loglevel=info", "--concurrency=2"]
+        env:
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-secrets
+              key: SECRET_KEY
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-secrets
+              key: POSTGRES_PASSWORD
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/var/secrets/google/service-account.json"
+        envFrom:
+        - configMapRef:
+            name: k-ocr-config
+        volumeMounts:
+        - name: temp-storage
+          mountPath: /app/temp_storage
+        - name: ocr-models
+          mountPath: /app/models
+        - name: google-cloud-key
+          mountPath: /var/secrets/google
+          readOnly: true
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "2000m"
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+      volumes:
+      - name: temp-storage
+        persistentVolumeClaim:
+          claimName: k-ocr-temp-storage-pvc
+      - name: ocr-models
+        persistentVolumeClaim:
+          claimName: k-ocr-models-pvc
+      - name: google-cloud-key
+        secret:
+          secretName: k-ocr-secrets
+          items:
+          - key: GOOGLE_APPLICATION_CREDENTIALS_JSON
+            path: service-account.json
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k-ocr-postgres-service
+  namespace: k-ocr
+  labels:
+    app: k-ocr-postgres
+spec:
+  selector:
+    app: k-ocr-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: k-ocr-postgres
+  namespace: k-ocr
+spec:
+  serviceName: k-ocr-postgres-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k-ocr-postgres
+  template:
+    metadata:
+      labels:
+        app: k-ocr-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: k_ocr_db
+        - name: POSTGRES_USER
+          value: k_ocr_user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: k-ocr-secrets
+              key: POSTGRES_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - k_ocr_user
+            - -d
+            - k_ocr_db
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - k_ocr_user
+            - -d
+            - k_ocr_db
+          initialDelaySeconds: 5
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 100Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k-ocr-redis-service
+  namespace: k-ocr
+  labels:
+    app: k-ocr-redis
+spec:
+  selector:
+    app: k-ocr-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k-ocr-redis
+  namespace: k-ocr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k-ocr-redis
+  template:
+    metadata:
+      labels:
+        app: k-ocr-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        command: ["redis-server"]
+        args: ["--appendonly", "yes", "--maxmemory", "1gb", "--maxmemory-policy", "allkeys-lru"]
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: redis-storage
+        persistentVolumeClaim:
+          claimName: k-ocr-redis-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: k-ocr-temp-storage-pvc
+  namespace: k-ocr
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: filestore-csi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: k-ocr-models-pvc
+  namespace: k-ocr
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: filestore-csi
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: k-ocr-redis-pvc
+  namespace: k-ocr
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k-ocr-service-account
+  namespace: k-ocr
+  annotations:
+    iam.gke.io/gcp-service-account: k-ocr-gke-sa@PROJECT_ID.iam.gserviceaccount.com
+
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: k-ocr-ssl-cert
+  namespace: k-ocr
+spec:
+  domains:
+    - k-ocr.yourdomain.com
+    - www.k-ocr.yourdomain.com
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: k-ocr-ingress
+  namespace: k-ocr
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: k-ocr-ip
+    networking.gke.io/managed-certificates: k-ocr-ssl-cert
+    kubernetes.io/ingress.class: gce
+    cloud.google.com/armor-config: '{"k-ocr-security-policy": "k-ocr-armor-policy"}'
+    cloud.google.com/backend-config: '{"default": "k-ocr-backend-config"}'
+spec:
+  rules:
+  - host: k-ocr.yourdomain.com
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: k-ocr-web-service
+            port:
+              number: 8000
+  - host: www.k-ocr.yourdomain.com
+    http:
+      paths:
+      - path: /*
+        pathType: ImplementationSpecific
+        backend:
+          service:
+            name: k-ocr-web-service
+            port:
+              number: 8000
+
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: k-ocr-backend-config
+  namespace: k-ocr
+spec:
+  healthCheck:
+    checkIntervalSec: 30
+    timeoutSec: 10
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /api/download/health
+    port: 8000
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
+  timeoutSec: 300
+  connectionDraining:
+    drainingTimeoutSec: 60
