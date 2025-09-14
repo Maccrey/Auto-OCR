@@ -37,7 +37,8 @@
       "Bash(find:*)",
       "Bash(pytest:*)",
       "Bash(chmod:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
