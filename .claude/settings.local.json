@@ -49,7 +49,9 @@
       "Bash(awk:*)",
       "Bash(redis-cli:*)",
       "Bash(sed:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(git restore:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
