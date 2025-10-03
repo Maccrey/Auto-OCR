@@ -168,6 +168,43 @@ def estimate_processing_time(options: ProcessingRequest) -> int:
     return base_time
 
 
+def cleanup_temp_images(image_paths: List[str], processed_images: List[str], logger) -> None:
+    """
+    임시 이미지 파일 정리
+
+    Args:
+        image_paths: 원본 PDF에서 변환된 이미지 경로 리스트 (temp_images/)
+        processed_images: 전처리된 이미지 경로 리스트 (processed_images/)
+        logger: 로거 객체
+    """
+    import os
+    from pathlib import Path
+
+    cleanup_count = 0
+    failed_count = 0
+
+    # 모든 임시 이미지 파일 정리
+    all_temp_files = image_paths + processed_images
+
+    for img_path in all_temp_files:
+        try:
+            if isinstance(img_path, str):
+                img_file = Path(img_path)
+                if img_file.exists() and img_file.is_file():
+                    os.remove(img_path)
+                    cleanup_count += 1
+                    logger.debug(f"Cleaned up temp image: {img_path}")
+        except Exception as e:
+            failed_count += 1
+            logger.warning(f"Failed to cleanup temp file {img_path}: {e}")
+
+    if cleanup_count > 0:
+        logger.info(f"Cleaned up {cleanup_count} temporary image files")
+
+    if failed_count > 0:
+        logger.warning(f"Failed to cleanup {failed_count} temporary files")
+
+
 def process_document_background(process_id: str, upload_id: str, options: Dict[str, Any]):
     """
     실제 문서 처리 (BackgroundTasks용)
@@ -297,15 +334,8 @@ def process_document_background(process_id: str, upload_id: str, options: Dict[s
 
         logger.info(f"Document processing completed for {upload_id} in {processing_time:.2f}s")
 
-        # 임시 이미지 파일 정리
-        for img_path in image_paths + processed_images:
-            try:
-                if isinstance(img_path, str):
-                    import os
-                    if os.path.exists(img_path):
-                        os.remove(img_path)
-            except Exception as e:
-                logger.warning(f"Failed to cleanup temp file {img_path}: {e}")
+        # 임시 이미지 파일 정리 (성공 시)
+        cleanup_temp_images(image_paths, processed_images, logger)
 
     except Exception as e:
         logger.error(f"Document processing failed for {upload_id}: {e}")
@@ -318,6 +348,13 @@ def process_document_background(process_id: str, upload_id: str, options: Dict[s
                 "message": str(e),
                 "type": type(e).__name__
             }
+
+        # 실패 시에도 임시 파일 정리 시도
+        try:
+            if 'image_paths' in locals() and 'processed_images' in locals():
+                cleanup_temp_images(image_paths, processed_images, logger)
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to cleanup files after error: {cleanup_error}")
 
 
 def update_task_settings(task_id: str, settings: Dict[str, Any]) -> bool:
