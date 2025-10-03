@@ -129,14 +129,32 @@ class TempStorage:
                 file_path.unlink()
             raise StorageError(f"Cannot save file: {e}")
     
+    def file_exists(self, file_id: str) -> bool:
+        """
+        파일 존재 여부 확인
+
+        Args:
+            file_id: 파일 고유 ID
+
+        Returns:
+            파일 존재 여부
+        """
+        with self._lock:
+            metadata = self._metadata.get(file_id)
+            if not metadata:
+                return False
+
+            file_path = self._get_file_path(file_id)
+            return file_path.exists()
+
     def get_file(self, file_id: str, user_id: str) -> Optional[FileInfo]:
         """
         파일 ID와 사용자 ID로 파일 정보를 반환
-        
+
         Args:
             file_id: 파일 고유 ID
             user_id: 요청 사용자 ID
-            
+
         Returns:
             파일 정보 또는 None
         """
@@ -144,22 +162,22 @@ class TempStorage:
             metadata = self._metadata.get(file_id)
             if not metadata:
                 return None
-            
+
             # 접근 권한 확인
             if metadata['uploader_id'] != user_id:
                 return None
-            
+
             file_path = self._get_file_path(file_id)
             if not file_path.exists():
                 # 파일이 없으면 메타데이터도 정리
                 del self._metadata[file_id]
                 self._save_metadata()
                 return None
-            
+
             try:
                 with open(file_path, 'rb') as f:
                     content = f.read()
-                
+
                 return FileInfo(
                     content=content,
                     filename=metadata['filename'],

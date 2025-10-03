@@ -22,11 +22,12 @@ logger = logging.getLogger(__name__)
 celery_app = Celery('k_ocr_tasks')
 
 # Basic configuration for testing
+# NOTE: Disabling task_always_eager to allow proper async execution
 celery_app.conf.update(
     broker_url='memory://',  # In-memory broker for testing
     result_backend='cache+memory://',  # In-memory result backend
-    task_always_eager=True,  # Execute tasks synchronously in tests
-    task_eager_propagates=True,
+    task_always_eager=False,  # Must be False for state updates to work
+    task_eager_propagates=False,
 )
 
 
@@ -45,6 +46,8 @@ def process_document(self, upload_id: str, options: Dict[str, Any]) -> Dict[str,
     Raises:
         Exception: If processing fails
     """
+    import time
+
     try:
         logger.info(f"Starting document processing for upload_id: {upload_id}")
 
@@ -53,47 +56,55 @@ def process_document(self, upload_id: str, options: Dict[str, Any]) -> Dict[str,
             state='PROGRESS',
             meta={'current_step': 'initializing', 'progress': 0}
         )
+        time.sleep(1)
 
         # Step 1: PDF to PNG conversion
         self.update_state(
             state='PROGRESS',
             meta={'current_step': 'converting_pdf', 'progress': 20}
         )
+        time.sleep(1)
 
         # Step 2: Image preprocessing
         self.update_state(
             state='PROGRESS',
             meta={'current_step': 'preprocessing_images', 'progress': 40}
         )
+        time.sleep(1)
 
         # Step 3: OCR processing
         self.update_state(
             state='PROGRESS',
             meta={'current_step': 'ocr_processing', 'progress': 60}
         )
+        time.sleep(1)
 
         # Step 4: Text correction
         self.update_state(
             state='PROGRESS',
             meta={'current_step': 'text_correction', 'progress': 80}
         )
+        time.sleep(1)
 
         # Step 5: File generation
         self.update_state(
             state='PROGRESS',
             meta={'current_step': 'generating_files', 'progress': 90}
         )
+        time.sleep(1)
 
-        # Complete
+        # Task will automatically set state to SUCCESS when returning
+
+        # Complete - return result to mark task as SUCCESS
+        # NOTE: This is a placeholder. Actual processing should be implemented here.
         result = {
             'upload_id': upload_id,
-            'process_id': f"proc_{upload_id}",
-            'final_text': 'Sample extracted text from OCR processing',
+            'text': 'Celery task completed but actual OCR processing not implemented.\nUse BackgroundTasks for actual processing.',
             'download_url': f'/api/download/{upload_id}',
-            'page_count': 1,
-            'confidence_score': 0.95,
-            'processing_time': 30.5,
-            'options_used': options
+            'pages': 0,
+            'confidence': 0.0,
+            'processing_time': 6.0,
+            'options': options
         }
 
         logger.info(f"Document processing completed for upload_id: {upload_id}")

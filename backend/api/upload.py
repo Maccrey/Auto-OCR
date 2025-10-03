@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from backend.utils.temp_storage import TempStorage
+from backend.dependencies import get_temp_storage as get_shared_storage
 
 # 로깅 설정
 logger = logging.getLogger(__name__)
@@ -30,8 +31,8 @@ logger = logging.getLogger(__name__)
 # 라우터 생성
 router = APIRouter(tags=["upload"])
 
-# 전역 임시 저장소 인스턴스 (실제로는 의존성 주입 사용)
-temp_storage = TempStorage()
+# 전역 임시 저장소 인스턴스 (공유 싱글톤 사용)
+temp_storage = get_shared_storage()
 
 
 class UploadError(Exception):

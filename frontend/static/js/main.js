@@ -215,6 +215,28 @@ window.OCRApp = {
     }
   },
 
+  // 진행 상태 초기화
+  initializeProgress() {
+    const progressBar = document.getElementById('progress-bar-fill');
+    const progressText = document.getElementById('progress-text');
+    const currentStep = document.getElementById('current-step');
+    const estimatedTime = document.getElementById('estimated-time');
+
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressText) progressText.textContent = '0%';
+    if (currentStep) currentStep.textContent = '처리 준비 중...';
+    if (estimatedTime) estimatedTime.textContent = '예상 시간 계산 중...';
+  },
+
+  // 결과 초기화
+  initializeResult() {
+    const resultText = document.getElementById('result-text');
+    const resultStats = document.getElementById('result-stats');
+
+    if (resultText) resultText.textContent = '';
+    if (resultStats) resultStats.innerHTML = '';
+  },
+
   // 처리 재시도
   retryProcessing() {
     if (this.state.uploadedFile) {
@@ -257,9 +279,6 @@ window.OCRApp = {
 
   // 처리 요청 전송
   async sendProcessingRequest() {
-    const formData = new FormData();
-    formData.append('file', this.state.uploadedFile);
-
     const requestData = {
       preprocessing_options: {
         apply_clahe: this.state.settings.preprocessing.clahe,
@@ -276,13 +295,147 @@ window.OCRApp = {
       }
     };
 
-    return fetch(`${this.config.apiBaseUrl}/process/${this.state.uploadId}`, {
+    const url = `${this.config.apiBaseUrl}/process/${this.state.uploadId}`;
+    console.log('Processing request URL:', url);
+    console.log('Processing request data:', requestData);
+
+    return fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestData)
     });
+  },
+
+  // 진행률 폴링 시작
+  startProgressPolling() {
+    if (!this.state.processId) return;
+
+    console.log('진행률 폴링 시작:', this.state.processId);
+
+    // 기존 폴링 중단
+    this.stopProgressPolling();
+
+    // 즉시 첫 번째 상태 확인
+    this.checkProcessingStatus();
+
+    // 정기적인 폴링 시작
+    this.pollingInterval = setInterval(() => {
+      this.checkProcessingStatus();
+    }, this.config.pollInterval);
+
+    this.pollAttempts = 0;
+  },
+
+  // 진행률 폴링 중단
+  stopProgressPolling() {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+      console.log('진행률 폴링 중단');
+    }
+  },
+
+  // 처리 상태 확인
+  async checkProcessingStatus() {
+    if (!this.state.processId) return;
+
+    try {
+      const response = await fetch(`${this.config.apiBaseUrl}/process/${this.state.processId}/status`);
+
+      if (!response.ok) {
+        throw new Error(`상태 확인 실패: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('처리 상태:', data);
+
+      // 진행률 업데이트
+      this.updateProgressUI(data);
+
+      // 완료 또는 실패 시 폴링 중단
+      if (data.status === 'completed') {
+        this.stopProgressPolling();
+        this.handleProcessingComplete(data);
+      } else if (data.status === 'failed') {
+        this.stopProgressPolling();
+        this.handleProcessingError(data);
+      }
+
+      this.pollAttempts++;
+      if (this.pollAttempts >= this.config.maxPollAttempts) {
+        this.stopProgressPolling();
+        this.showError('처리 시간이 초과되었습니다.');
+      }
+    } catch (error) {
+      console.error('상태 확인 오류:', error);
+    }
+  },
+
+  // 진행률 UI 업데이트
+  updateProgressUI(data) {
+    const progressBar = document.getElementById('progress-bar-fill');
+    const progressText = document.getElementById('progress-text');
+    const currentStep = document.getElementById('current-step');
+    const estimatedTime = document.getElementById('estimated-time');
+
+    if (progressBar) progressBar.style.width = `${data.progress || 0}%`;
+    if (progressText) progressText.textContent = `${data.progress || 0}%`;
+    if (currentStep) currentStep.textContent = data.current_step || '처리 중...';
+    if (estimatedTime && data.estimated_time) {
+      estimatedTime.textContent = `예상 남은 시간: ${Math.ceil(data.estimated_time / 60)}분`;
+    }
+  },
+
+  // 처리 완료 처리
+  handleProcessingComplete(data) {
+    console.log('처리 완료:', data);
+    console.log('결과 데이터:', data.result);
+
+    this.showToast('문서 처리가 완료되었습니다!', 'success');
+
+    // 먼저 결과 섹션으로 전환
+    this.showSection('result');
+
+    // 결과 표시
+    if (data.result && data.result.text) {
+      console.log('텍스트 표시 중:', data.result.text.substring(0, 50) + '...');
+
+      const previewContent = document.getElementById('preview-content');
+      const resultPages = document.getElementById('result-pages');
+      const resultTime = document.getElementById('result-processing-time');
+      const resultConfidence = document.getElementById('result-confidence');
+
+      if (previewContent) {
+        previewContent.innerHTML = `<pre style="white-space: pre-wrap; margin: 0;">${data.result.text}</pre>`;
+        console.log('텍스트 표시 완료');
+      } else {
+        console.error('preview-content 요소를 찾을 수 없습니다');
+      }
+
+      if (resultPages) {
+        resultPages.textContent = `${data.result.pages}페이지`;
+      }
+
+      if (resultTime && data.result.processing_time) {
+        resultTime.textContent = `${data.result.processing_time.toFixed(1)}초`;
+      }
+
+      if (resultConfidence && data.result.confidence) {
+        resultConfidence.textContent = `${(data.result.confidence * 100).toFixed(1)}%`;
+      }
+    } else {
+      console.error('결과 데이터가 없습니다:', data);
+    }
+  },
+
+  // 처리 오류 처리
+  handleProcessingError(data) {
+    console.error('처리 실패:', data);
+    const errorMessage = data.error?.message || '처리 중 오류가 발생했습니다.';
+    this.showError(errorMessage);
+    this.showSection('upload');
   },
 
   // 처리 취소
@@ -295,6 +448,7 @@ window.OCRApp = {
       });
 
       if (response.ok) {
+        this.stopProgressPolling();
         this.state.isProcessing = false;
         this.showToast('처리가 취소되었습니다.', 'info');
         this.showSection('upload');

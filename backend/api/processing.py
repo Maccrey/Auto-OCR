@@ -17,10 +17,9 @@ from enum import Enum
 
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from pydantic import BaseModel, Field
-from celery.result import AsyncResult
 
 from backend.utils.temp_storage import TempStorage
-from backend.core.tasks import process_document
+from backend.dependencies import get_temp_storage as get_shared_storage
 
 # 로깅 설정
 logger = logging.getLogger(__name__)
@@ -28,15 +27,11 @@ logger = logging.getLogger(__name__)
 # 라우터 생성
 router = APIRouter(tags=["processing"])
 
-# 전역 임시 저장소 인스턴스
-temp_storage = TempStorage()
+# 전역 임시 저장소 인스턴스 (공유 싱글톤 사용)
+temp_storage = get_shared_storage()
 
-# Celery 앱 (실제 구현에서는 설정에서 가져옴)
-try:
-    from backend.core.tasks import celery_app
-except ImportError:
-    celery_app = None
-    logger.warning("Celery not available - processing will run synchronously")
+# 활성 프로세스 추적 (실제 환경에서는 Redis 등 사용)
+active_processes: Dict[str, Dict[str, Any]] = {}
 
 
 class ProcessingStatus(str, Enum):
@@ -67,7 +62,7 @@ class CorrectionOptions(BaseModel):
 class ProcessingRequest(BaseModel):
     """처리 요청 모델"""
     preprocessing_options: Optional[PreprocessingOptions] = PreprocessingOptions()
-    ocr_engine: str = Field(default="paddle", pattern="^(paddle|tesseract)$")
+    ocr_engine: str = Field(default="paddle", pattern="^(paddle|tesseract|ensemble)$")
     correction_enabled: bool = True
     correction_options: Optional[CorrectionOptions] = CorrectionOptions()
     priority: int = Field(default=5, ge=1, le=10)
@@ -137,7 +132,7 @@ def get_temp_storage() -> TempStorage:
 
 def validate_ocr_engine(engine: str) -> None:
     """OCR 엔진 유효성 검사"""
-    valid_engines = ["paddle", "tesseract"]
+    valid_engines = ["paddle", "tesseract", "ensemble"]
     if engine not in valid_engines:
         raise HTTPException(
             status_code=400,
@@ -173,6 +168,158 @@ def estimate_processing_time(options: ProcessingRequest) -> int:
     return base_time
 
 
+def process_document_background(process_id: str, upload_id: str, options: Dict[str, Any]):
+    """
+    실제 문서 처리 (BackgroundTasks용)
+    PDF를 이미지로 변환하고 OCR 처리 후 텍스트 교정
+    """
+    import time
+    from backend.core.pdf_converter import PDFConverter
+    from backend.core.image_processor import ImageProcessor
+    from backend.core.ocr_engine import OCREngineManager
+    from backend.core.text_corrector import TextCorrector
+
+    start_time = time.time()
+
+    try:
+        logger.info(f"Starting document processing for {upload_id}")
+
+        # 파일 경로 가져오기
+        storage = get_shared_storage()
+        file_path = storage._get_file_path(upload_id)
+
+        if not file_path.exists():
+            raise FileNotFoundError(f"Upload file not found: {upload_id}")
+
+        # Step 1: PDF to PNG 변환
+        if process_id in active_processes:
+            active_processes[process_id]["progress"] = 10
+            active_processes[process_id]["current_step"] = "PDF 변환 중..."
+            active_processes[process_id]["status"] = "processing"
+
+        pdf_converter = PDFConverter()
+        image_paths = pdf_converter.convert_pdf_to_png(str(file_path))
+        logger.info(f"Converted {len(image_paths)} pages")
+
+        if process_id in active_processes:
+            active_processes[process_id]["progress"] = 25
+
+        # Step 2: 이미지 전처리
+        if process_id in active_processes:
+            active_processes[process_id]["progress"] = 30
+            active_processes[process_id]["current_step"] = "이미지 전처리 중..."
+
+        image_processor = ImageProcessor()
+        preprocessing_opts = options.get("preprocessing_options", {})
+
+        # ProcessingOptions 객체 생성
+        from backend.core.image_processor import ProcessingOptions
+        proc_options = ProcessingOptions(
+            apply_clahe=preprocessing_opts.get("apply_clahe", True),
+            deskew_enabled=preprocessing_opts.get("deskew_enabled", True),
+            noise_removal=preprocessing_opts.get("noise_removal", True),
+            adaptive_threshold=preprocessing_opts.get("adaptive_threshold", True),
+            super_resolution=preprocessing_opts.get("super_resolution", False)
+        )
+
+        processed_images = []
+        for img_path in image_paths:
+            processed_img = image_processor.preprocess_pipeline(img_path, proc_options)
+            processed_images.append(processed_img)
+
+        if process_id in active_processes:
+            active_processes[process_id]["progress"] = 45
+
+        # Step 3: OCR 처리
+        if process_id in active_processes:
+            active_processes[process_id]["progress"] = 50
+            active_processes[process_id]["current_step"] = "OCR 텍스트 인식 중..."
+
+        ocr_manager = OCREngineManager()
+        engine_type = options.get("ocr_engine", "paddle")
+        ocr_manager.set_engine(engine_type)
+
+        all_text = []
+        total_confidence = 0
+
+        # 테스트용: 첫 3페이지만 처리
+        pages_to_process = min(3, len(processed_images))
+        logger.info(f"Processing {pages_to_process} pages out of {len(processed_images)}")
+
+        for idx in range(pages_to_process):
+            img_path = processed_images[idx]
+            logger.info(f"OCR processing page {idx+1}/{pages_to_process}")
+            result = ocr_manager.recognize_text(img_path)
+            logger.info(f"Page {idx+1} OCR completed: {len(result.text)} chars, confidence: {result.confidence:.2f}")
+            all_text.append(result.text)
+            total_confidence += result.confidence
+
+            # 진행률 업데이트
+            progress = 50 + int((idx + 1) / pages_to_process * 25)
+            if process_id in active_processes:
+                active_processes[process_id]["progress"] = progress
+                active_processes[process_id]["updated_at"] = datetime.now()
+
+        combined_text = "\n\n".join(all_text)
+        avg_confidence = total_confidence / len(processed_images) if processed_images else 0
+
+        # Step 4: 텍스트 교정
+        if options.get("correction_enabled", False):
+            if process_id in active_processes:
+                active_processes[process_id]["progress"] = 80
+                active_processes[process_id]["current_step"] = "텍스트 교정 중..."
+
+            text_corrector = TextCorrector()
+            correction_opts = options.get("correction_options", {})
+
+            corrected_text = text_corrector.correct_text(
+                combined_text,
+                spacing_correction=correction_opts.get("spacing_correction", True),
+                spelling_correction=correction_opts.get("spelling_correction", True)
+            )
+            final_text = corrected_text
+        else:
+            final_text = combined_text
+
+        # Step 5: 완료
+        processing_time = time.time() - start_time
+
+        if process_id in active_processes:
+            active_processes[process_id]["status"] = "completed"
+            active_processes[process_id]["progress"] = 100
+            active_processes[process_id]["current_step"] = "완료"
+            active_processes[process_id]["result"] = {
+                "text": final_text,
+                "pages": len(image_paths),
+                "confidence": avg_confidence,
+                "processing_time": processing_time
+            }
+
+        logger.info(f"Document processing completed for {upload_id} in {processing_time:.2f}s")
+
+        # 임시 이미지 파일 정리
+        for img_path in image_paths + processed_images:
+            try:
+                if isinstance(img_path, str):
+                    import os
+                    if os.path.exists(img_path):
+                        os.remove(img_path)
+            except Exception as e:
+                logger.warning(f"Failed to cleanup temp file {img_path}: {e}")
+
+    except Exception as e:
+        logger.error(f"Document processing failed for {upload_id}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+
+        if process_id in active_processes:
+            active_processes[process_id]["status"] = "failed"
+            active_processes[process_id]["error"] = {
+                "message": str(e),
+                "type": type(e).__name__
+            }
+
+
 def update_task_settings(task_id: str, settings: Dict[str, Any]) -> bool:
     """
     작업 설정 업데이트
@@ -195,56 +342,21 @@ def update_task_settings(task_id: str, settings: Dict[str, Any]) -> bool:
 
 
 def get_task_status(task_id: str) -> Optional[Dict[str, Any]]:
-    """Celery 작업 상태 조회"""
-    if not celery_app:
-        # Celery 없이 Mock 상태 반환
-        if task_id in active_processes:
-            return active_processes[task_id]
-        return None
-
-    try:
-        result = AsyncResult(task_id, app=celery_app)
-
-        status_mapping = {
-            "PENDING": "pending",
-            "PROGRESS": "processing",
-            "SUCCESS": "completed",
-            "FAILURE": "failed",
-            "REVOKED": "cancelled"
-        }
-
-        task_status = {
+    """작업 상태 조회"""
+    # active_processes에서 상태 반환
+    if task_id in active_processes:
+        process_info = active_processes[task_id]
+        # 표준 형식으로 변환
+        return {
             "task_id": task_id,
-            "status": status_mapping.get(result.status, "unknown"),
-            "progress": 0,
-            "current_step": "Unknown",
-            "result": None,
-            "error": None
+            "status": process_info.get("status", "pending"),
+            "progress": process_info.get("progress", 0),
+            "current_step": process_info.get("current_step", "Unknown"),
+            "result": process_info.get("result"),
+            "error": process_info.get("error"),
+            "estimated_time": process_info.get("estimated_time")
         }
-
-        if result.status == "PROGRESS" and result.info:
-            task_status.update({
-                "progress": result.info.get("progress", 0),
-                "current_step": result.info.get("current_step", "Processing"),
-                "estimated_time": result.info.get("estimated_time")
-            })
-        elif result.status == "SUCCESS" and result.result:
-            task_status.update({
-                "progress": 100,
-                "current_step": "Completed",
-                "result": result.result
-            })
-        elif result.status == "FAILURE" and result.info:
-            task_status.update({
-                "current_step": "Failed",
-                "error": result.info if isinstance(result.info, dict) else {"message": str(result.info)}
-            })
-
-        return task_status
-
-    except Exception as e:
-        logger.error(f"Failed to get task status for {task_id}: {e}")
-        return None
+    return None
 
 
 def get_processing_status(upload_id: str) -> Optional[Dict[str, Any]]:
@@ -260,6 +372,7 @@ def get_processing_status(upload_id: str) -> Optional[Dict[str, Any]]:
 async def start_processing(
     upload_id: str,
     request: ProcessingRequest,
+    background_tasks: BackgroundTasks,
     storage: TempStorage = Depends(get_temp_storage)
 ):
     """
@@ -302,32 +415,31 @@ async def start_processing(
         # 처리 시간 추정
         estimated_time = estimate_processing_time(request)
 
-        # 처리 작업 시작
-        if celery_app and process_document:
-            # Celery로 비동기 처리
-            task = process_document.delay(
-                upload_id=upload_id,
-                options=request.model_dump(),
-                priority=request.priority
-            )
-            process_id = task.id
-        else:
-            # Celery 없이 동기 처리 (개발용)
-            import uuid
-            process_id = str(uuid.uuid4())
+        # 처리 작업 시작 (BackgroundTasks 사용)
+        import uuid
+        process_id = str(uuid.uuid4())
 
         # 활성 프로세스 추가
         active_processes[process_id] = {
             "upload_id": upload_id,
             "status": "pending",
             "progress": 0,
-            "current_step": "Queued for processing",
+            "current_step": "처리 대기 중...",
             "created_at": datetime.now(),
             "options": request.model_dump(),
             "estimated_time": estimated_time
         }
 
-        logger.info(f"Started processing for upload {upload_id} with process ID {process_id}")
+        # 백그라운드 실제 처리 시작 (threading 사용)
+        import threading
+        thread = threading.Thread(
+            target=process_document_background,
+            args=(process_id, upload_id, request.model_dump())
+        )
+        thread.daemon = True
+        thread.start()
+
+        logger.info(f"Started background thread for upload {upload_id} with process ID {process_id}")
 
         return ProcessingResponse(
             process_id=process_id,
@@ -341,10 +453,12 @@ async def start_processing(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to start processing for {upload_id}: {e}")
+        import traceback
+        error_detail = f"{str(e)}\n{traceback.format_exc()}"
+        logger.error(f"Failed to start processing for {upload_id}: {error_detail}")
         raise HTTPException(
             status_code=500,
-            detail="Failed to start processing due to internal server error."
+            detail=f"Failed to start processing: {str(e)}"
         )
 
 

@@ -11,8 +11,8 @@ from fastapi.responses import HTMLResponse
 import os
 from pathlib import Path
 
-# API 라우터 임포트 (추후 구현)
-# from backend.api import upload, processing, download
+# API 라우터 임포트
+from backend.api import upload, processing, download
 
 app = FastAPI(
     title="K-OCR Web Corrector",
@@ -59,10 +59,10 @@ async def health_check():
     }
 
 
-# API 라우터 등록 (추후 구현)
-# app.include_router(upload.router, prefix="/api", tags=["upload"])
-# app.include_router(processing.router, prefix="/api", tags=["processing"])
-# app.include_router(download.router, prefix="/api", tags=["download"])
+# API 라우터 등록
+app.include_router(upload.router, prefix="/api", tags=["upload"])
+app.include_router(processing.router, prefix="/api", tags=["processing"])
+app.include_router(download.router, prefix="/api", tags=["download"])
 
 
 if __name__ == "__main__":

@@ -38,7 +38,18 @@
       "Bash(pytest:*)",
       "Bash(chmod:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)",
+      "Bash(for i in {1..8})",
+      "Bash(for i in 1 2 3 4 5 6)",
+      "Bash(do echo \"=== Check $i ===\")",
+      "Bash(done)",
+      "Bash(xargs kill:*)",
+      "Bash(awk:*)",
+      "Bash(redis-cli:*)",
+      "Bash(sed:*)",
+      "Bash(kill:*)"
     ],
     "deny": [],
     "ask": []

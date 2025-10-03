@@ -154,15 +154,21 @@ class PaddleOCREngine(OCREngine):
         """PaddleOCR 엔진 초기화"""
         try:
             import paddleocr
-            
-            # PaddleOCR 초기화
-            self.ocr_engine = paddleocr.PaddleOCR(
-                use_angle_cls=True,
-                lang=self.language,
-                use_gpu=self.use_gpu,
-                show_log=False
-            )
-            
+
+            # PaddleOCR 초기화 (최소 파라미터)
+            try:
+                # 기본 초기화
+                self.ocr_engine = paddleocr.PaddleOCR(
+                    use_angle_cls=True,
+                    lang='korean'
+                )
+                logger.info("PaddleOCR initialized successfully")
+            except Exception as init_error:
+                logger.error(f"PaddleOCR initialization error: {init_error}")
+                # 최소 파라미터로 재시도
+                self.ocr_engine = paddleocr.PaddleOCR(lang='korean')
+                logger.info("PaddleOCR initialized with minimal parameters")
+
         except ImportError:
             raise OCREngineError("PaddleOCR is not installed. Please install with: pip install paddleocr")
         except Exception as e:
@@ -173,13 +179,13 @@ class PaddleOCREngine(OCREngine):
         try:
             # PIL Image를 numpy array로 변환
             image_array = np.array(image)
-            
-            # PaddleOCR 실행
-            result = self.ocr_engine.ocr(image_array, cls=True)
-            
+
+            # PaddleOCR 실행 (cls 파라미터 제거)
+            result = self.ocr_engine.ocr(image_array)
+
             # 결과 파싱
             return self._parse_paddle_result(result)
-            
+
         except Exception as e:
             raise OCREngineError(f"PaddleOCR recognition failed: {e}")
     
@@ -416,9 +422,14 @@ class OCREngineManager:
     
     def set_engine(self, engine_name: str) -> None:
         """현재 사용할 엔진 설정"""
+        # ensemble은 paddle로 대체
+        if engine_name == 'ensemble':
+            logger.info("Ensemble mode requested, using paddle instead")
+            engine_name = 'paddle'
+
         if engine_name not in self.available_engines:
             raise OCREngineError(f"Engine '{engine_name}' not available. Available engines: {self.available_engines}")
-        
+
         self.current_engine = engine_name
         logger.info(f"OCR engine set to: {engine_name}")
     
