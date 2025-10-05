@@ -14,6 +14,8 @@ options:
       value: "8000"
     - name: HOST
       value: 0.0.0.0
+    - name: WORKERS
+      value: "1"
     - name: MAX_FILE_SIZE
       value: "52428800"
     - name: ALLOWED_EXTENSIONS

@@ -164,5 +164,5 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
 
 EXPOSE 8000
 
-# 프로덕션 시작 명령
-CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS} --timeout-keep-alive ${KEEP_ALIVE}"]
+# 프로덕션 시작 명령 (단일 워커로 시작 - 메모리 절약)
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "5"]
