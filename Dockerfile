@@ -54,24 +54,14 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # OCR 모델 다운로드 및 캐싱
-RUN python -c "
-import paddleocr
-import os
-
-# PaddleOCR 모델 미리 다운로드
-print('PaddleOCR 한국어 모델 다운로드 중...')
-ocr = paddleocr.PaddleOCR(use_angle_cls=True, lang='korean', show_log=False)
-print('PaddleOCR 모델 다운로드 완료')
-
-# 모델 파일 위치 확인
-home = os.path.expanduser('~')
-paddle_dir = os.path.join(home, '.paddleocr')
-if os.path.exists(paddle_dir):
-    print(f'PaddleOCR 모델 위치: {paddle_dir}')
-    for root, dirs, files in os.walk(paddle_dir):
-        for file in files[:5]:  # 처음 5개 파일만 표시
-            print(f'  - {os.path.join(root, file)}')
-" || echo "PaddleOCR 모델 다운로드 실패 - 런타임에 다운로드됩니다"
+RUN python -c "import paddleocr; import os; \
+print('PaddleOCR 한국어 모델 다운로드 중...'); \
+ocr = paddleocr.PaddleOCR(use_angle_cls=True, lang='korean', show_log=False); \
+print('PaddleOCR 모델 다운로드 완료'); \
+home = os.path.expanduser('~'); \
+paddle_dir = os.path.join(home, '.paddleocr'); \
+print(f'PaddleOCR 모델 위치: {paddle_dir}') if os.path.exists(paddle_dir) else None" \
+    || echo "PaddleOCR 모델 다운로드 실패 - 런타임에 다운로드됩니다"
 
 # 빌드 도구 정리
 RUN apt-get remove -y build-essential pkg-config && \
