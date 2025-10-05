@@ -116,7 +116,31 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
 
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
-# Stage 5: Production
+# Stage 5: Worker (Celery)
+FROM app as worker
+
+ENV ENVIRONMENT=production \
+    CELERY_BROKER_URL=redis://redis:6379/0 \
+    CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+USER appuser
+
+# Celery 워커 시작 명령
+CMD ["celery", "-A", "backend.core.tasks", "worker", "--loglevel=info", "--concurrency=4"]
+
+# Stage 6: Scheduler (Celery Beat)
+FROM app as scheduler
+
+ENV ENVIRONMENT=production \
+    CELERY_BROKER_URL=redis://redis:6379/0 \
+    CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+USER appuser
+
+# Celery Beat 스케줄러 시작 명령
+CMD ["celery", "-A", "backend.core.tasks", "beat", "--loglevel=info"]
+
+# Stage 7: Production (Default)
 FROM app as production
 
 ENV ENVIRONMENT=production \
@@ -139,27 +163,3 @@ EXPOSE 8000
 
 # 프로덕션 시작 명령
 CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS} --timeout-keep-alive ${KEEP_ALIVE}"]
-
-# Stage 6: Worker (Celery)
-FROM app as worker
-
-ENV ENVIRONMENT=production \
-    CELERY_BROKER_URL=redis://redis:6379/0 \
-    CELERY_RESULT_BACKEND=redis://redis:6379/0
-
-USER appuser
-
-# Celery 워커 시작 명령
-CMD ["celery", "-A", "backend.core.tasks", "worker", "--loglevel=info", "--concurrency=4"]
-
-# Stage 7: Scheduler (Celery Beat)
-FROM app as scheduler
-
-ENV ENVIRONMENT=production \
-    CELERY_BROKER_URL=redis://redis:6379/0 \
-    CELERY_RESULT_BACKEND=redis://redis:6379/0
-
-USER appuser
-
-# Celery Beat 스케줄러 시작 명령
-CMD ["celery", "-A", "backend.core.tasks", "beat", "--loglevel=info"]
