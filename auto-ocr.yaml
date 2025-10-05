@@ -3,6 +3,7 @@ app: dockerfile
 options:
   ports: "8000"
   dockerfile: ./Dockerfile
+  target: production
   env:
     - name: ENVIRONMENT
       value: production
