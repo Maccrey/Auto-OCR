@@ -14,6 +14,23 @@ from pathlib import Path
 # API 라우터 임포트
 from backend.api import upload, processing, download
 
+# 필수 디렉토리 생성 (시작 시)
+BASE_DIR = Path(__file__).parent.parent
+REQUIRED_DIRS = [
+    BASE_DIR / "temp_storage",
+    BASE_DIR / "logs",
+    BASE_DIR / "processed_images",
+    BASE_DIR / "temp_images"
+]
+
+for directory in REQUIRED_DIRS:
+    directory.mkdir(parents=True, exist_ok=True)
+    # 권한 설정 (가능한 경우)
+    try:
+        os.chmod(directory, 0o775)
+    except Exception:
+        pass  # 권한 설정 실패해도 계속 진행
+
 app = FastAPI(
     title="K-OCR Web Corrector",
     description="한국어 문서 OCR 및 교정 웹 서비스",
@@ -32,7 +49,6 @@ app.add_middleware(
 )
 
 # 정적 파일 서빙
-BASE_DIR = Path(__file__).parent.parent
 STATIC_DIR = BASE_DIR / "frontend" / "static"
 TEMPLATES_DIR = BASE_DIR / "frontend" / "templates"
 

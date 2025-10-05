@@ -149,11 +149,14 @@ ENV ENVIRONMENT=production \
     TIMEOUT=300 \
     KEEP_ALIVE=2
 
+# 디렉토리 권한 설정 (USER 변경 전에 실행)
+RUN touch /app/logs/app.log && \
+    chmod 664 /app/logs/app.log && \
+    chmod 775 /app/temp_storage && \
+    chmod 775 /app/logs
+
 # 보안 설정
 USER appuser
-
-# 로그 디렉토리 권한 확인
-RUN touch /app/logs/app.log && chmod 664 /app/logs/app.log
 
 # 헬스체크 설정
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
