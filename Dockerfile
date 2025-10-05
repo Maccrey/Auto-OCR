@@ -13,14 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-kor \
     tesseract-ocr-eng \
-    # OpenCV 의존성
-    libgl1-mesa-glx \
+    # OpenCV 의존성 (Debian 12+ 호환)
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
-    libxrender-dev \
+    libxrender1 \
     libgomp1 \
-    libgthread-2.0-0 \
     # PDF 처리
     libfontconfig1 \
     libfreetype6 \
