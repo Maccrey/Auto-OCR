@@ -51,7 +51,8 @@
       "Bash(sed:*)",
       "Bash(kill:*)",
       "Bash(git restore:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(docker build:*)"
     ],
     "deny": [],
     "ask": []
