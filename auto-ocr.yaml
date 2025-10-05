@@ -1,0 +1,52 @@
+name: auto-ocr
+app: dockerfile
+options:
+  ports: "8000"
+  dockerfile: ./Dockerfile
+  env:
+    - name: ENVIRONMENT
+      value: production
+    - name: DEBUG
+      value: "false"
+    - name: SECRET_KEY
+      value: caRM2GuXdKC5J3qmbb40gmqm0abFUdrbXbb9j1OFMS4
+    - name: PORT
+      value: "8000"
+    - name: HOST
+      value: 0.0.0.0
+    - name: MAX_FILE_SIZE
+      value: "52428800"
+    - name: ALLOWED_EXTENSIONS
+      value: .pdf
+    - name: TEMP_FILE_TTL
+      value: "86400"
+    - name: DEFAULT_OCR_ENGINE
+      value: paddleocr
+    - name: ENABLE_TESSERACT
+      value: "true"
+    - name: ENABLE_PADDLEOCR
+      value: "true"
+    - name: PADDLEOCR_USE_GPU
+      value: "false"
+    - name: DEFAULT_DPI
+      value: "300"
+    - name: ENABLE_PREPROCESSING
+      value: "true"
+    - name: ENABLE_SPACING_CORRECTION
+      value: "false"
+    - name: ENABLE_SPELL_CORRECTION
+      value: "false"
+    - name: ENABLE_CUSTOM_RULES
+      value: "true"
+    - name: LOG_LEVEL
+      value: INFO
+    - name: WORKER_PROCESSES
+      value: "1"
+    - name: WORKER_TIMEOUT
+      value: "300"
+    - name: MAX_CONCURRENT_UPLOADS
+      value: "3"
+context:
+  git:
+    url: https://github.com/Maccrey/Auto-OCR.git
+    branch: main
