@@ -7,7 +7,7 @@ options:
     - name: ENVIRONMENT
       value: production
     - name: DEBUG
-      value: "false"
+      value: "true"
     - name: SECRET_KEY
       value: caRM2GuXdKC5J3qmbb40gmqm0abFUdrbXbb9j1OFMS4
     - name: PORT
@@ -41,7 +41,7 @@ options:
     - name: ENABLE_CUSTOM_RULES
       value: "true"
     - name: LOG_LEVEL
-      value: INFO
+      value: DEBUG
     - name: WORKER_PROCESSES
       value: "1"
     - name: WORKER_TIMEOUT

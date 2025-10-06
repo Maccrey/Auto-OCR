@@ -267,11 +267,19 @@ async def upload_file(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Upload failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to upload file due to internal server error."
-        )
+        logger.error(f"Upload failed: {e}", exc_info=True)
+        # DEBUG 모드에서는 자세한 에러 메시지 반환
+        import os
+        if os.getenv("DEBUG", "false").lower() == "true":
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to upload file: {type(e).__name__}: {str(e)}"
+            )
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to upload file due to internal server error."
+            )
     finally:
         # 파일 스트림 정리
         if file:
