@@ -74,7 +74,7 @@ FROM dependencies as app
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # 애플리케이션 디렉토리 및 권한 설정
-RUN mkdir -p /app/temp_storage /app/logs /app/models && \
+RUN mkdir -p /app/temp_storage /app/logs /app/models /app/processed_images /app/temp_images && \
     chown -R appuser:appuser /app
 
 # 애플리케이션 코드 복사

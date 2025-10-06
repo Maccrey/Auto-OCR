@@ -14,7 +14,7 @@ from pathlib import Path
 # API 라우터 임포트
 from backend.api import upload, processing, download
 
-# 필수 디렉토리 생성 (시작 시)
+# 필수 디렉토리 생성 (시작 시) - Dockerfile에서 생성되므로 확인만 수행
 BASE_DIR = Path(__file__).parent.parent
 REQUIRED_DIRS = [
     BASE_DIR / "temp_storage",
@@ -24,12 +24,16 @@ REQUIRED_DIRS = [
 ]
 
 for directory in REQUIRED_DIRS:
-    directory.mkdir(parents=True, exist_ok=True)
-    # 권한 설정 (가능한 경우)
     try:
+        directory.mkdir(parents=True, exist_ok=True)
         os.chmod(directory, 0o775)
-    except Exception:
-        pass  # 권한 설정 실패해도 계속 진행
+    except PermissionError:
+        # Dockerfile에서 이미 생성되었으므로 무시
+        pass
+    except Exception as e:
+        # 기타 에러는 로깅만 하고 계속 진행
+        import logging
+        logging.warning(f"Could not create/modify directory {directory}: {e}")
 
 app = FastAPI(
     title="K-OCR Web Corrector",
