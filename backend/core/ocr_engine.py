@@ -142,31 +142,40 @@ class OCREngine(ABC):
 
 
 class PaddleOCREngine(OCREngine):
-    """PaddleOCR 엔진 구현"""
-    
+    """PaddleOCR 엔진 구현 (지연 로딩)"""
+
     def __init__(self, use_gpu: bool = False, language: str = "korean"):
         super().__init__("PaddleOCR")
         self.use_gpu = use_gpu
         self.language = language
         self.ocr_engine = None
-    
+
     def _initialize_engine(self) -> None:
-        """PaddleOCR 엔진 초기화"""
+        """PaddleOCR 엔진 초기화 (지연 로딩)"""
+        # 이미 초기화되었으면 건너뜀
+        if self.ocr_engine is not None:
+            return
+
         try:
             import paddleocr
 
-            # PaddleOCR 초기화 (최소 파라미터)
+            logger.info("PaddleOCR 로딩 중... (첫 사용 시에만 발생)")
+
+            # PaddleOCR 초기화 (최소 파라미터, 메모리 절약)
             try:
-                # 기본 초기화
+                # 기본 초기화 (use_angle_cls=False로 메모리 절약)
                 self.ocr_engine = paddleocr.PaddleOCR(
-                    use_angle_cls=True,
-                    lang='korean'
+                    use_angle_cls=False,  # 메모리 절약
+                    lang='korean',
+                    show_log=False,  # 로그 출력 최소화
+                    use_gpu=False,  # CPU만 사용
+                    enable_mkldnn=False,  # Intel CPU 최적화 비활성화 (메모리 절약)
                 )
-                logger.info("PaddleOCR initialized successfully")
+                logger.info("PaddleOCR initialized successfully (memory-optimized)")
             except Exception as init_error:
                 logger.error(f"PaddleOCR initialization error: {init_error}")
                 # 최소 파라미터로 재시도
-                self.ocr_engine = paddleocr.PaddleOCR(lang='korean')
+                self.ocr_engine = paddleocr.PaddleOCR(lang='korean', show_log=False)
                 logger.info("PaddleOCR initialized with minimal parameters")
 
         except ImportError:
@@ -383,8 +392,8 @@ class TesseractEngine(OCREngine):
 
 
 class OCREngineManager:
-    """OCR 엔진 매니저 클래스"""
-    
+    """OCR 엔진 매니저 클래스 (지연 로딩)"""
+
     def __init__(self):
         self.engines: Dict[str, OCREngine] = {}
         self.available_engines = ["paddle", "tesseract"]
@@ -392,33 +401,34 @@ class OCREngineManager:
         self.current_engine = self.default_engine
         self._confidence_history: Dict[str, List[float]] = {}
         self._performance_history: Dict[str, List[float]] = {}
-        
-        # 엔진 인스턴스 생성
-        self._initialize_engines()
-    
-    def _initialize_engines(self) -> None:
-        """사용 가능한 엔진들 초기화"""
+
+        # 엔진 인스턴스는 생성하지 않음 (지연 로딩)
+        logger.info("OCREngineManager initialized (engines will be loaded on first use)")
+
+    def _get_or_create_engine(self, engine_name: str) -> OCREngine:
+        """엔진을 가져오거나 생성 (지연 로딩)"""
+        if engine_name in self.engines:
+            return self.engines[engine_name]
+
+        # 엔진 생성
         try:
-            self.engines["paddle"] = PaddleOCREngine()
+            if engine_name == "paddle":
+                logger.info("Creating PaddleOCR engine (first use)...")
+                self.engines["paddle"] = PaddleOCREngine()
+            elif engine_name == "tesseract":
+                logger.info("Creating Tesseract engine (first use)...")
+                self.engines["tesseract"] = TesseractEngine()
+            else:
+                raise OCREngineError(f"Unknown engine: {engine_name}")
+
+            return self.engines[engine_name]
+
         except Exception as e:
-            logger.warning(f"PaddleOCR engine not available: {e}")
-            if "paddle" in self.available_engines:
-                self.available_engines.remove("paddle")
-        
-        try:
-            self.engines["tesseract"] = TesseractEngine()
-        except Exception as e:
-            logger.warning(f"Tesseract engine not available: {e}")
-            if "tesseract" in self.available_engines:
-                self.available_engines.remove("tesseract")
-        
-        if not self.available_engines:
-            raise OCREngineError("No OCR engines available")
-        
-        # 기본 엔진 재설정 (필요시)
-        if self.default_engine not in self.available_engines:
-            self.default_engine = self.available_engines[0]
-            self.current_engine = self.default_engine
+            logger.error(f"Failed to create {engine_name} engine: {e}")
+            # 엔진 목록에서 제거
+            if engine_name in self.available_engines:
+                self.available_engines.remove(engine_name)
+            raise OCREngineError(f"Engine '{engine_name}' not available: {e}")
     
     def set_engine(self, engine_name: str) -> None:
         """현재 사용할 엔진 설정"""
@@ -434,13 +444,14 @@ class OCREngineManager:
         logger.info(f"OCR engine set to: {engine_name}")
     
     def recognize_text(self, image: Union[Image.Image, np.ndarray, str, Path]) -> OCRResult:
-        """현재 설정된 엔진으로 텍스트 인식"""
-        engine = self.engines[self.current_engine]
+        """현재 설정된 엔진으로 텍스트 인식 (지연 로딩)"""
+        # 엔진을 가져오거나 생성 (첫 사용 시)
+        engine = self._get_or_create_engine(self.current_engine)
         result = engine.recognize_text(image)
-        
+
         # 성능 통계 업데이트
         self._update_statistics(self.current_engine, result)
-        
+
         return result
     
     def ensemble_recognition(self, 
