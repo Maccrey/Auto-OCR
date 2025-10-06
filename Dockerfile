@@ -153,7 +153,10 @@ ENV ENVIRONMENT=production \
 RUN touch /app/logs/app.log && \
     chmod 664 /app/logs/app.log && \
     chmod 775 /app/temp_storage && \
-    chmod 775 /app/logs
+    chmod 775 /app/logs && \
+    chmod 775 /app/processed_images && \
+    chmod 775 /app/temp_images && \
+    chmod 775 /app/models
 
 # 보안 설정
 USER appuser
