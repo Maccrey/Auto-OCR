@@ -110,11 +110,13 @@
   font-size: var(--font-lg);
   font-weight: 500;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--spacing-sm);
   transition: all var(--transition-fast);
   box-shadow: var(--shadow-sm);
+  margin: 0 auto;
 }
 
 .upload-button:hover {
