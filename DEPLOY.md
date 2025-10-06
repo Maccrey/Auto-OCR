@@ -72,13 +72,14 @@ Runtime: Docker
 Dockerfile Path: ./Dockerfile
 Build Context: .
 Port: 8000
-Start Command: (비워두기 - Dockerfile CMD 사용)
+Start Command: uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
-**⚠️ Start Command 참고:**
-- **권장**: 비워두기 (Dockerfile의 CMD가 자동 실행)
-- **명시 설정 시**: `uvicorn backend.main:app --host 0.0.0.0 --port 8000`
-- **멀티워커**: `uvicorn backend.main:app --host 0.0.0.0 --port 8000 --workers 2`
+**⚠️ Start Command 중요:**
+- **필수 설정**: `uvicorn backend.main:app --host 0.0.0.0 --port 8000`
+- **이유**: Dockerfile의 CMD가 멀티워커로 설정되어 있어 메모리 부족 발생
+- **단일 프로세스 강제**: Start Command를 명시하면 Dockerfile CMD를 덮어씀
+- **멀티워커 사용 시**: `--workers 2` (유료 플랜에서만 권장)
 
 #### Step 3: 서비스 이름 설정
 ```
